@@ -43,4 +43,34 @@ SAMPLE_JOBS = [
         "title": "Data Analyst",
         "company": "Data Insights Ethiopia",
         "category": "tech",
-        "job_type":
+        "job_type": "full",
+        "location": "Addis Ababa",
+        "salary": "ETB 45,000 - 65,000/month",
+        "description": "Analyze large datasets to provide insights and support data-driven decision making.",
+        "requirements": "• SQL and Python/R experience\n• Statistical analysis skills\n• Data visualization expertise\n• 2+ years in data analysis",
+        "contact_email": "jobs@dataethiopia.com",
+        "contact_phone": "+251 944 567 890"
+    },
+    {
+        "title": "Medical Doctor",
+        "company": "St. Mary Hospital",
+        "category": "medical",
+        "job_type": "full",
+        "location": "Addis Ababa",
+        "salary": "ETB 60,000 - 90,000/month",
+        "description": "Provide medical care to patients in our modern healthcare facility.",
+        "requirements": "• Medical degree and license\n• 3+ years clinical experience\n• Specialization preferred\n• Excellent bedside manner",
+        "contact_email": "recruitment@stmaryhospital.com",
+        "contact_phone": "+251 955 678 901"
+    }
+]
+
+def populate_sample_jobs(db):
+    """Populate database with sample jobs"""
+    for job_data in SAMPLE_JOBS:
+        # Add employer ID (use 1 as sample employer)
+        job_data['employer_id'] = 1
+        job_data['expires_at'] = datetime.now().timestamp() + 90*24*60*60  # 90 days
+        db.add_job(job_data)
+    
+    print(f"✅ Added {len(SAMPLE_JOBS)} sample jobs to database")
