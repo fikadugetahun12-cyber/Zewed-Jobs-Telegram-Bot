@@ -1,0 +1,11 @@
+{
+    "success": false,
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "Required field 'title' is missing",
+        "details": {
+            "field": "title",
+            "constraint": "required"
+        }
+    }
+}
