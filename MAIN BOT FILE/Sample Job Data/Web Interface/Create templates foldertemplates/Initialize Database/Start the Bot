@@ -1,0 +1,5 @@
+# Start Telegram bot
+python bot.py
+
+# In another terminal, start web dashboard
+python web_dashboard.py
