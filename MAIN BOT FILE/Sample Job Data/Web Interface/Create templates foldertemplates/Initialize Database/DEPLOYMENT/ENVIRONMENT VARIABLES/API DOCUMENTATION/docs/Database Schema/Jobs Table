@@ -1,0 +1,22 @@
+CREATE TABLE jobs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(200) NOT NULL,
+    company_id INT NOT NULL,
+    location VARCHAR(100),
+    salary_min DECIMAL(10,2),
+    salary_max DECIMAL(10,2),
+    salary_currency VARCHAR(3) DEFAULT 'USD',
+    job_type ENUM('full_time', 'part_time', 'contract', 'internship', 'remote') DEFAULT 'full_time',
+    category VARCHAR(50),
+    description TEXT NOT NULL,
+    requirements JSON,
+    experience_level ENUM('entry', 'mid', 'senior', 'executive') DEFAULT 'mid',
+    education_level VARCHAR(50),
+    posted_date DATE NOT NULL,
+    expiry_date DATE,
+    status ENUM('active', 'inactive', 'expired', 'filled') DEFAULT 'active',
+    applications_count INT DEFAULT 0,
+    views_count INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
