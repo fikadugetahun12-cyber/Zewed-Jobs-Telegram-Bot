@@ -1,0 +1,7 @@
+PUT /api/jobs.php?id=1
+Content-Type: application/json
+
+{
+    "title": "Updated Job Title",
+    "status": "active"
+}
