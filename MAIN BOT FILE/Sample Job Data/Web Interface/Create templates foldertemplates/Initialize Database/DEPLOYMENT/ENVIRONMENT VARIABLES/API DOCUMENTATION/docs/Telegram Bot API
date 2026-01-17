@@ -1,0 +1,8 @@
+/start - Start the bot
+/help - Show help message
+/jobs - Browse latest jobs
+/search [keywords] - Search jobs
+/profile - View user profile
+/applications - View applications
+/alerts - Manage job alerts
+/stats - Bot statistics (admin only)
