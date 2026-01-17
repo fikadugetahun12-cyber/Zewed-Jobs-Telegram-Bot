@@ -1,0 +1,24 @@
+# 1. Clone your repo
+git clone https://github.com/yourusername/zewedjobs-complete.git
+cd zewedjobs-complete
+
+# 2. Install dependencies
+cd telegram-bot
+pip install -r requirements.txt
+
+# 3. Set environment variables
+cp .env.example .env
+nano .env  # Edit with your details
+
+# 4. Initialize database
+python -c "from database import db; db.sync_tables()"
+
+# 5. Start services
+# Start bot (in screen/tmux)
+python bot.py
+
+# Start web dashboard (in another screen)
+python web_dashboard.py
+
+# 6. Set up Nginx proxy (optional)
+sudo nano /etc/nginx/sites-available/zewedjobs
