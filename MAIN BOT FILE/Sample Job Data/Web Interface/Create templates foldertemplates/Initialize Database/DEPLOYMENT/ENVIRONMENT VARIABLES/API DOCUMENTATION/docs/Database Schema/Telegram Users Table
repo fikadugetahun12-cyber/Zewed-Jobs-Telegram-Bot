@@ -1,0 +1,11 @@
+CREATE TABLE telegram_users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    telegram_id BIGINT UNIQUE NOT NULL,
+    username VARCHAR(255),
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    user_type ENUM('job_seeker', 'employer', 'admin') DEFAULT 'job_seeker',
+    registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    preferences JSON
+);
