@@ -1,0 +1,4 @@
+from zewedjobs import ZewedJobsAPI
+
+api = ZewedJobsAPI(api_key="YOUR_API_KEY")
+jobs = api.get_jobs(status="active")
