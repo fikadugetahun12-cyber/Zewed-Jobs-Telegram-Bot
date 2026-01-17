@@ -1,0 +1,12 @@
+
+**Response:**
+```json
+{
+    "success": true,
+    "message": "Login successful",
+    "user": {
+        "id": 1,
+        "username": "admin",
+        "role": "administrator"
+    }
+}
