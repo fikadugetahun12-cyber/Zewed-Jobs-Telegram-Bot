@@ -1,0 +1,8 @@
+import { ZewedJobsClient } from 'zewedjobs-client';
+
+const client = new ZewedJobsClient({
+  apiKey: 'YOUR_API_KEY',
+  baseURL: 'https://api.zewedjobs.com'
+});
+
+client.getJobs({ status: 'active' });
