@@ -1,0 +1,9 @@
+POST /api/users.php
+Content-Type: application/json
+
+{
+    "username": "newuser",
+    "email": "user@example.com",
+    "password": "password123",
+    "role": "job_seeker"
+}
