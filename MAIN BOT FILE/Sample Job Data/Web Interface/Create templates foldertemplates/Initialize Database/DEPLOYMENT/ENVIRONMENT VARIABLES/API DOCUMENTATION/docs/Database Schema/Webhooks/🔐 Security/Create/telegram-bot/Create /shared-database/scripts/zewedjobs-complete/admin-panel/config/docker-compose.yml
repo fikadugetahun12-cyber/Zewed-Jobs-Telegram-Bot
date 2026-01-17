@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # MySQL Database (Shared)
+  mysql:
+    image: mysql:8.0
+    container_name: zewed-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: zewedjobs_db
+      MYSQL_USER: zeweduser
+      MYSQL_PASSWORD: ${DB_PASSWORD:-zewedpass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./shared-database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - zewed-network
+
+  # PHP Admin Panel
+  php-admin:
+    build:
+      context: ./admin-panel
+      dockerfile: Dockerfile
+    container_name: zewed-php-admin
+    restart: always
+    depends_on:
+      - mysql
+    ports:
+      - "8080:80"
+    volumes:
+      - ./admin-panel:/var/www/html
+    environment:
+      DB_HOST: mysql
+      DB_NAME: zewedjobs_db
+      DB_USER: zeweduser
+      DB_PASSWORD: ${DB_PASSWORD:-zewedpass}
+    networks:
+      - zewed-network
+
+  # Telegram Bot
+  telegram-bot:
+    build:
+      context: ./telegram-bot
+      dockerfile: Dockerfile
+    container_name: zewed-telegram-bot
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      DB_HOST: mysql
+      DB_NAME: zewedjobs_db
+      DB_USER: zeweduser
+      DB_PASSWORD: ${DB_PASSWORD:-zewedpass}
+    networks:
+      - zewed-network
+
+  # Web Dashboard
+  web-dashboard:
+    build:
+      context: ./telegram-bot
+      dockerfile: Dockerfile.web
+    container_name: zewed-web-dashboard
+    restart: always
+    depends_on:
+      - mysql
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: mysql
+      DB_NAME: zewedjobs_db
+      DB_USER: zeweduser
+      DB_PASSWORD: ${DB_PASSWORD:-zewedpass}
+      SECRET_KEY: ${SECRET_KEY}
+    networks:
+      - zewed-network
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: zewed-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - php-admin
+      - web-dashboard
+    networks:
+      - zewed-network
+
+volumes:
+  mysql_data:
+
+networks:
+  zewed-network:
+    driver: bridge
