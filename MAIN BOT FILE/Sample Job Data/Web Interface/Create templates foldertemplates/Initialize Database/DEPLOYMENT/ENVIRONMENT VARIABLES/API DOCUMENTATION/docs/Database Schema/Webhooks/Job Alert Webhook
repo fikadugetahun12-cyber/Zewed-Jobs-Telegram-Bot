@@ -1,0 +1,12 @@
+POST /webhook/job-alert
+Content-Type: application/json
+
+{
+    "event": "new_job",
+    "data": {
+        "job_id": 123,
+        "title": "New Developer Position",
+        "company": "Tech Corp",
+        "location": "Remote"
+    }
+}
