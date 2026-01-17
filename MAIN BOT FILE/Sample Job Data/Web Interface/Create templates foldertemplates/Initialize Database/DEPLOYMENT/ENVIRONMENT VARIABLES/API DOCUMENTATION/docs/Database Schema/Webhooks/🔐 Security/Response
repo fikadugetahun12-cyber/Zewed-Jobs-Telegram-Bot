@@ -1,0 +1,14 @@
+{
+    "status": "healthy",
+    "timestamp": "2024-01-23T10:30:00Z",
+    "services": {
+        "database": "connected",
+        "cache": "connected",
+        "telegram": "connected"
+    },
+    "metrics": {
+        "response_time": "45ms",
+        "memory_usage": "256MB",
+        "active_connections": 24
+    }
+}
