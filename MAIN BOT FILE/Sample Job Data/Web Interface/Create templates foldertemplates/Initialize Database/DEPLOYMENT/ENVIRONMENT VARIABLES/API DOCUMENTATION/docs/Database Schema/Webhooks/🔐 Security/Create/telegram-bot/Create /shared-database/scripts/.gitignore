@@ -1,0 +1,121 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.env
+.venv
+env.bak/
+venv.bak/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+*.logs
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# PHP
+/vendor/
+composer.lock
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+backup-*
+*.old
+
+# Uploads
+uploads/
+assets/uploads/
+*.upload
+
+# Session files
+sess_*
+
+# Cache
+.cache/
+cache/
+*.cache
+
+# Test coverage
+.coverage
+htmlcov/
+.coverage.*
+.pytest_cache/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Documentation
+docs/_build/
+
+# Secrets
+*.pem
+*.key
+*.cert
+secrets.yml
+secrets.yaml
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# MySQL
+*.ibd
+*.frm
+ibdata1
+ib_logfile*
+
+# System
+.directory
+*~
+
+# Project specific
+admin-panel/database/*.json
+telegram-bot/instance/
+telegram-bot/*.pid
+!telegram-bot/.env.example
+!shared-database/schema.sql
