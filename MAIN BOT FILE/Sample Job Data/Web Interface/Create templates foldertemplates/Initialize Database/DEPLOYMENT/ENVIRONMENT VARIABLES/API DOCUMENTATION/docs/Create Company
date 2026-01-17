@@ -1,0 +1,12 @@
+POST /api/companies.php?action=create
+Content-Type: application/json
+
+{
+    "name": "New Company",
+    "email": "contact@company.com",
+    "phone": "+251911223344",
+    "website": "https://company.com",
+    "location": "Addis Ababa",
+    "industry": "Technology",
+    "description": "Company description..."
+}
