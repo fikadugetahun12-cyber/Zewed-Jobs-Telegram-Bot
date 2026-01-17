@@ -1,0 +1,15 @@
+CREATE TABLE companies (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    website VARCHAR(255),
+    location VARCHAR(100),
+    industry VARCHAR(50),
+    description TEXT,
+    logo_url VARCHAR(255),
+    verified BOOLEAN DEFAULT FALSE,
+    jobs_posted INT DEFAULT 0,
+    member_since DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
