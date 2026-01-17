@@ -1,0 +1,7 @@
+PUT /api/applications.php?id=1
+Content-Type: application/json
+
+{
+    "status": "reviewed",
+    "notes": "Candidate looks promising"
+}
