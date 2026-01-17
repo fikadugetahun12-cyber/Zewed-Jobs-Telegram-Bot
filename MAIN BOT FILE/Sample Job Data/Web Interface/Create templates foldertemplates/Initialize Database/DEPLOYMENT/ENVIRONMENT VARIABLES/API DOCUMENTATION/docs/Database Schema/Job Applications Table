@@ -1,0 +1,11 @@
+CREATE TABLE job_applications (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    job_id INT NOT NULL,
+    user_id INT NOT NULL,
+    cover_letter TEXT,
+    resume_url VARCHAR(255),
+    status ENUM('pending', 'reviewed', 'shortlisted', 'rejected', 'accepted') DEFAULT 'pending',
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP NULL,
+    notes TEXT
+);
