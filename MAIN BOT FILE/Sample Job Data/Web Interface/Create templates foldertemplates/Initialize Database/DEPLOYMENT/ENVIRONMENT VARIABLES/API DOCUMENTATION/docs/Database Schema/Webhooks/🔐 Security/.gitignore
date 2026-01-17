@@ -1,0 +1,213 @@
+
+### **Missing Files to Complete:**
+
+**1. Create `telegram-bot/scheduler.py`:**
+```python
+#!/usr/bin/env python3
+"""
+Scheduler for periodic tasks:
+- Send job alerts
+- Clean up old data
+- Backup database
+- Send statistics
+"""
+
+import schedule
+import time
+import logging
+from datetime import datetime, timedelta
+from database import Database
+import requests
+import json
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+db = Database()
+
+def send_job_alerts():
+    """Send job alerts to subscribed users"""
+    logger.info("Sending job alerts...")
+    
+    try:
+        # Get active job alerts
+        query = """
+            SELECT tu.telegram_id, ja.criteria 
+            FROM telegram_job_alerts ja
+            JOIN telegram_users tu ON ja.telegram_id = tu.telegram_id
+            WHERE ja.is_active = TRUE
+            AND (ja.last_sent IS NULL OR ja.last_sent < DATE_SUB(NOW(), INTERVAL 1 DAY))
+        """
+        
+        alerts = db.execute_query(query)
+        
+        for alert in alerts:
+            telegram_id = alert['telegram_id']
+            criteria = json.loads(alert['criteria']) if alert['criteria'] else {}
+            
+            # Search jobs based on criteria
+            jobs = db.search_jobs(
+                keywords=criteria.get('keywords'),
+                location=criteria.get('location'),
+                category=criteria.get('category'),
+                limit=5
+            )
+            
+            if jobs:
+                # Send alert message
+                message = f"📢 *New Jobs Matching Your Alert*\n\n"
+                for job in jobs[:3]:
+                    message += f"🎯 {job['title']}\n"
+                    message += f"🏢 {job['company']}\n"
+                    message += f"📍 {job.get('location', 'Remote')}\n"
+                    if job.get('salary'):
+                        message += f"💵 {job['salary']}\n"
+                    message += f"🔗 /job_{job['id']}\n\n"
+                
+                message += f"_Found {len(jobs)} matching jobs_"
+                
+                # In production, send via Telegram Bot API
+                # For now, log it
+                logger.info(f"Alert for {telegram_id}: {len(jobs)} jobs")
+                
+                # Update last_sent time
+                update_query = """
+                    UPDATE telegram_job_alerts 
+                    SET last_sent = NOW() 
+                    WHERE telegram_id = %s
+                """
+                db.execute_query(update_query, (telegram_id,))
+        
+        logger.info(f"Sent {len(alerts)} job alerts")
+        
+    except Exception as e:
+        logger.error(f"Error sending job alerts: {e}")
+
+def cleanup_old_data():
+    """Clean up old data"""
+    logger.info("Cleaning up old data...")
+    
+    try:
+        # Delete messages older than 30 days
+        query = """
+            DELETE FROM telegram_messages_log 
+            WHERE sent_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
+        """
+        deleted_messages = db.execute_query(query)
+        
+        # Delete inactive sessions older than 7 days
+        query = """
+            DELETE FROM telegram_sessions 
+            WHERE updated_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
+        """
+        deleted_sessions = db.execute_query(query)
+        
+        logger.info(f"Cleaned up: {deleted_messages} messages, {deleted_sessions} sessions")
+        
+    except Exception as e:
+        logger.error(f"Error cleaning up data: {e}")
+
+def update_statistics():
+    """Update statistics in database"""
+    logger.info("Updating statistics...")
+    
+    try:
+        # Get current stats
+        query = """
+            SELECT 
+                COUNT(DISTINCT telegram_id) as total_users,
+                COUNT(DISTINCT CASE WHEN last_active > DATE_SUB(NOW(), INTERVAL 1 DAY) THEN telegram_id END) as active_today,
+                COUNT(*) as total_applications,
+                COUNT(DISTINCT job_id) as jobs_with_applications
+            FROM telegram_users tu
+            LEFT JOIN telegram_job_applications tja ON tu.telegram_id = tja.telegram_id
+        """
+        
+        stats = db.execute_query(query)
+        if stats:
+            stat = stats[0]
+            logger.info(f"Stats: {stat['total_users']} users, {stat['active_today']} active today")
+    
+    except Exception as e:
+        logger.error(f"Error updating statistics: {e}")
+
+def health_check():
+    """Perform system health check"""
+    logger.info("Running health check...")
+    
+    try:
+        # Check database connection
+        result = db.execute_query("SELECT 1 as test")
+        if result and result[0]['test'] == 1:
+            logger.info("✅ Database connection OK")
+        else:
+            logger.error("❌ Database connection failed")
+        
+        # Check if there are active jobs
+        jobs = db.get_recent_jobs(limit=1)
+        if jobs:
+            logger.info(f"✅ {len(jobs)} active jobs")
+        else:
+            logger.warning("⚠️ No active jobs found")
+            
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+
+def send_daily_report():
+    """Send daily report to admin"""
+    logger.info("Sending daily report...")
+    
+    try:
+        # Get daily stats
+        query = """
+            SELECT 
+                DATE(registration_date) as date,
+                COUNT(*) as new_users,
+                COUNT(DISTINCT CASE WHEN user_type = 'employer' THEN telegram_id END) as new_employers
+            FROM telegram_users
+            WHERE registration_date > DATE_SUB(NOW(), INTERVAL 1 DAY)
+            GROUP BY DATE(registration_date)
+        """
+        
+        stats = db.execute_query(query)
+        
+        if stats:
+            report = f"📊 *Daily Report - {datetime.now().strftime('%Y-%m-%d')}*\n\n"
+            for stat in stats:
+                report += f"📅 {stat['date']}\n"
+                report += f"👤 New Users: {stat['new_users']}\n"
+                report += f"🏢 New Employers: {stat['new_employers']}\n\n"
+            
+            logger.info(f"Daily report ready: {report}")
+            
+            # In production, send to admin via Telegram
+            # For now, just log it
+            
+    except Exception as e:
+        logger.error(f"Error generating daily report: {e}")
+
+def main():
+    """Main scheduler function"""
+    logger.info("🚀 Starting ZewedJobs Scheduler")
+    
+    # Schedule tasks
+    schedule.every(1).hours.do(send_job_alerts)
+    schedule.every().day.at("02:00").do(cleanup_old_data)
+    schedule.every().hour.do(update_statistics)
+    schedule.every(30).minutes.do(health_check)
+    schedule.every().day.at("09:00").do(send_daily_report)
+    
+    logger.info("Scheduled tasks:")
+    for job in schedule.get_jobs():
+        logger.info(f"  - {job}")
+    
+    # Run immediately once
+    health_check()
+    
+    # Keep running
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
+
+if __name__ == "__main__":
+    main()
