@@ -1,0 +1,28 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": 1,
+            "title": "Senior Web Developer",
+            "company": "Tech Corp",
+            "location": "Addis Ababa",
+            "salary_min": 60000,
+            "salary_max": 80000,
+            "type": "full_time",
+            "category": "Technology",
+            "description": "Job description...",
+            "requirements": ["PHP", "JavaScript", "MySQL"],
+            "status": "active",
+            "applications_count": 15,
+            "views_count": 245,
+            "posted_date": "2024-01-15",
+            "expiry_date": "2024-02-15"
+        }
+    ],
+    "pagination": {
+        "total": 45,
+        "per_page": 20,
+        "current_page": 1,
+        "total_pages": 3
+    }
+}
