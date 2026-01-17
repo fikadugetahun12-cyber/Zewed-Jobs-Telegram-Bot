@@ -1,0 +1,14 @@
+POST /webhook/telegram
+Content-Type: application/json
+
+{
+    "event": "message",
+    "data": {
+        "from": {
+            "id": 123456789,
+            "username": "john_doe"
+        },
+        "text": "Hello",
+        "timestamp": 1674579204
+    }
+}
