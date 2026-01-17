@@ -1,0 +1,18 @@
+{
+    "bot": {
+        "total_users": 1500,
+        "active_today": 245,
+        "messages_today": 1245,
+        "applications_today": 42
+    },
+    "jobs": {
+        "total": 89,
+        "active": 56,
+        "expired": 12
+    },
+    "system": {
+        "uptime": "5 days",
+        "memory_usage": "45%",
+        "database_size": "24.5 MB"
+    }
+}
