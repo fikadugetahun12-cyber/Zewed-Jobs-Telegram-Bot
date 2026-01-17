@@ -1,0 +1,15 @@
+POST /api/jobs.php?action=create
+Content-Type: application/json
+
+{
+    "title": "New Job Position",
+    "company_id": 1,
+    "location": "Remote",
+    "salary_min": 50000,
+    "salary_max": 70000,
+    "type": "full_time",
+    "category": "Technology",
+    "description": "Job description...",
+    "requirements": ["Skill 1", "Skill 2"],
+    "expiry_date": "2024-03-15"
+}
