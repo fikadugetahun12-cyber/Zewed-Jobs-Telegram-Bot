@@ -1,0 +1,3 @@
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+X-Request-ID: unique-request-id
