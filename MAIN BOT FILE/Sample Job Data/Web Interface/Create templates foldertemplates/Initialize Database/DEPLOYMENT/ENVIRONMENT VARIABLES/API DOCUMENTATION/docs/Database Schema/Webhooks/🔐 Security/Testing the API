@@ -1,0 +1,7 @@
+# Get jobs
+curl -X GET "https://api.zewedjobs.com/jobs.php?status=active"
+
+# Create job
+curl -X POST "https://api.zewedjobs.com/jobs.php" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Test Job","company_id":1}'
