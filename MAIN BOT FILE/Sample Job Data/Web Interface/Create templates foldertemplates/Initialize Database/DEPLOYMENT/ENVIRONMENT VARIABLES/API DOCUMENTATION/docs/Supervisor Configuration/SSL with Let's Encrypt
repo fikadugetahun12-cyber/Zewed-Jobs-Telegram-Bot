@@ -1,0 +1,1 @@
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
