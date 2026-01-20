@@ -1,0 +1,9 @@
+# Test MySQL connection
+mysql -u root -p zewedjobs_admin -e "SELECT 'Connection successful'"
+
+# Test from PHP
+cd admin-panel
+php -r "
+require_once 'config/config.php';
+echo 'Database connection: ' . (\$db ? 'OK' : 'Failed') . PHP_EOL;
+"
