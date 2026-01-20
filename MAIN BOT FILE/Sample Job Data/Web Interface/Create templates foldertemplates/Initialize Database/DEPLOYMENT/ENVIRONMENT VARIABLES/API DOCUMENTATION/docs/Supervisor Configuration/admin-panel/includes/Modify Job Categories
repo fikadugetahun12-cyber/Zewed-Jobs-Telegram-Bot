@@ -1,0 +1,7 @@
+-- Add new categories
+INSERT INTO job_categories (name, description) VALUES
+('Blockchain', 'Blockchain and cryptocurrency jobs'),
+('AI/ML', 'Artificial Intelligence and Machine Learning');
+
+-- Or edit in admin panel
+-- Navigate to Settings → Job Categories
