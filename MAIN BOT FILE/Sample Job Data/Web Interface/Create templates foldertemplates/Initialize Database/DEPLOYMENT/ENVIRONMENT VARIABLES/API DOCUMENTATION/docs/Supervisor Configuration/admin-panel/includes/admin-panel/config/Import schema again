@@ -1,0 +1,1 @@
+mysql -u root -p zewedjobs_admin < shared-database/schema.sql
