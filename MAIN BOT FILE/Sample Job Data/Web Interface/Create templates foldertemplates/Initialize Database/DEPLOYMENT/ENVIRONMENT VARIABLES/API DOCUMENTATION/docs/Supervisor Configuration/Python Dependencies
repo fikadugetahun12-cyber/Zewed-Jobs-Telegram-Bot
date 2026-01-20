@@ -1,0 +1,20 @@
+# Navigate to bot directory
+cd telegram-bot
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+# On Linux/Mac:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Deactivate virtual environment (when done)
+deactivate
+
+# Return to project root
+cd ..
