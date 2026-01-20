@@ -1,0 +1,9 @@
+-- Backup first!
+BACKUP DATABASE zewedjobs_admin TO '/backup/backup.sql';
+
+-- Run migration script
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS category VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSON;
+
+-- Update existing data
+UPDATE jobs SET category = 'IT' WHERE category IS NULL AND title LIKE '%software%';
