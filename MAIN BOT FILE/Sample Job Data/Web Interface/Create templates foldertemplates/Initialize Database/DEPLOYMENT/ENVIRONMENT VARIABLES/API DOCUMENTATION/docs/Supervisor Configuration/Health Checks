@@ -1,0 +1,11 @@
+# Run health check script
+./scripts/health-check.sh
+
+# Check service status
+sudo systemctl status supervisor
+sudo systemctl status nginx
+sudo systemctl status mysql
+
+# Check logs
+sudo tail -f /var/log/supervisor/zewedjobs*.log
+sudo tail -f /var/log/nginx/access.log
