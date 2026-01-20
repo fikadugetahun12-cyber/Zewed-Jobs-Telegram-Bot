@@ -1,0 +1,8 @@
+# Check if bot is running
+ps aux | grep bot.py
+
+# Check logs
+tail -f telegram-bot/bot.log
+
+# Check token
+cat telegram-bot/.env | grep BOT_TOKEN
