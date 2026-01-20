@@ -1,0 +1,5 @@
+# Install optional PHP extensions
+sudo apt install php-mysql php-curl php-gd php-mbstring php-xml php-zip
+
+# Or using Homebrew on Mac
+brew install php@8.2
