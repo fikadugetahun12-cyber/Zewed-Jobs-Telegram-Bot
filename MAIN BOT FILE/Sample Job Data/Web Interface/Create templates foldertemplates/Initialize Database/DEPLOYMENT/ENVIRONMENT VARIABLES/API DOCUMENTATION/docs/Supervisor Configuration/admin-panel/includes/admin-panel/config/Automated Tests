@@ -1,0 +1,8 @@
+# Run Python tests
+cd telegram-bot
+source venv/bin/activate
+python -m pytest tests/
+
+# Run PHP tests (if available)
+cd ../admin-panel
+php vendor/bin/phpunit
