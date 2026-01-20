@@ -1,0 +1,17 @@
+# Start all services
+./RUN_ME_FIRST.sh
+
+# Start bot only
+cd telegram-bot && source venv/bin/activate && python bot.py
+
+# Start dashboard only
+cd telegram-bot && source venv/bin/activate && python web_dashboard.py
+
+# Start admin panel only
+cd admin-panel && php -S localhost:8080
+
+# Backup database
+./scripts/backup-database.sh
+
+# Health check
+./scripts/health-check.sh
