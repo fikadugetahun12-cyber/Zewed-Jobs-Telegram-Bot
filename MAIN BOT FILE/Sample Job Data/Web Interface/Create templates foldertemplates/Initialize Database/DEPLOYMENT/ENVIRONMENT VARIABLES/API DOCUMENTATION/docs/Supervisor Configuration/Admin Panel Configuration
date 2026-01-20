@@ -1,0 +1,5 @@
+# Copy example file
+cp admin-panel/config/.env.example admin-panel/config/.env
+
+# Edit the file
+nano admin-panel/config/.env
