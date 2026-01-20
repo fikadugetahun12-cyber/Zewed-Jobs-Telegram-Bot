@@ -1,0 +1,12 @@
+# Login to MySQL
+mysql -u root -p
+
+# Create database
+CREATE DATABASE zewedjobs_admin CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+# Import schema
+USE zewedjobs_admin;
+SOURCE shared-database/schema.sql;
+
+# Exit MySQL
+EXIT;
