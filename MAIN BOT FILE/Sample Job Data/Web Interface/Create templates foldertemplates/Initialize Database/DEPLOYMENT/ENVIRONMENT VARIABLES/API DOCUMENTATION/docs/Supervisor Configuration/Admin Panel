@@ -1,0 +1,2 @@
+cd admin-panel
+php -S localhost:8080
