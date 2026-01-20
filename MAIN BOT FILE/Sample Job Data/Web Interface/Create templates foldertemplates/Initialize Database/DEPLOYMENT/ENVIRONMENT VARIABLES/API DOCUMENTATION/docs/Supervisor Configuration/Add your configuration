@@ -1,0 +1,12 @@
+# Required
+BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+ADMIN_IDS=123456789
+
+# Database
+DB_HOST=localhost
+DB_NAME=zewedjobs_admin
+DB_USER=root
+DB_PASS=yourpassword
+
+# Optional
+SECRET_KEY=your-secret-key-here
