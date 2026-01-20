@@ -1,0 +1,2 @@
+# Run on fresh Ubuntu 22.04 server
+curl -sSL https://raw.githubusercontent.com/yourusername/zewedjobs-complete/main/scripts/deploy-vps.sh | bash
