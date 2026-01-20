@@ -1,0 +1,2 @@
+pkill -f bot.py
+cd telegram-bot && source venv/bin/activate && python bot.py
