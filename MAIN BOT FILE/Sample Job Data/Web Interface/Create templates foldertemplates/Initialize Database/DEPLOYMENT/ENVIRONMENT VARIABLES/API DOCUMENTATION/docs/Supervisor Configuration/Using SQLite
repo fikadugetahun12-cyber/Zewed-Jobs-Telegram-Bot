@@ -1,0 +1,6 @@
+# Copy SQLite database file
+cp shared-database/zewedjobs.db.example shared-database/zewedjobs.db
+
+# Update configuration
+echo "DB_CONNECTION=sqlite" >> admin-panel/config/.env
+echo "DB_DATABASE=../shared-database/zewedjobs.db" >> admin-panel/config/.env
