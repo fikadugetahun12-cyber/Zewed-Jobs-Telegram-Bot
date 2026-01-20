@@ -1,0 +1,12 @@
+# Telegram Bot
+BOT_TOKEN=8282317478:AAGhFXcetc1heO_YELwE0IKylZd30jDUuXo
+ADMIN_IDS=123456789,987654321
+
+# Database
+DB_HOST=localhost
+DB_NAME=zewedjobs_admin
+DB_USER=root
+DB_PASS=Desfil2026@
+
+# Security
+SECRET_KEY=your_secret_key_here
