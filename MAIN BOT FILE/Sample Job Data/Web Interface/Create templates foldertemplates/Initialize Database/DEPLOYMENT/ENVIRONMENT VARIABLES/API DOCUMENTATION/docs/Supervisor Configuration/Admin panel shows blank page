@@ -1,0 +1,9 @@
+# Check PHP error log
+sudo tail -f /var/log/php/error.log
+
+# Check file permissions
+sudo chmod -R 755 admin-panel/
+sudo chown -R www-data:www-data admin-panel/
+
+# Check PHP requirements
+php -m | grep -E "pdo|mysqli|mbstring"
