@@ -1,0 +1,12 @@
+# Clone repository
+git clone https://github.com/yourusername/zewedjobs-complete.git
+cd zewedjobs-complete
+
+# Setup database
+sudo mysql < shared-database/schema.sql
+
+# Setup Python environment
+cd telegram-bot
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
