@@ -1,0 +1,8 @@
+# Check MySQL service
+sudo systemctl status mysql
+
+# Test connection
+mysql -u root -p
+
+# Check credentials in .env files
+cat admin-panel/config/.env | grep DB_
