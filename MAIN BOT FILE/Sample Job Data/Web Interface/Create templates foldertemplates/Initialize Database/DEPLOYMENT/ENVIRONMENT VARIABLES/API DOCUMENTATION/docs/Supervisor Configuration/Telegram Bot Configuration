@@ -1,0 +1,5 @@
+# Copy example file
+cp telegram-bot/.env.example telegram-bot/.env
+
+# Edit the file
+nano telegram-bot/.env
