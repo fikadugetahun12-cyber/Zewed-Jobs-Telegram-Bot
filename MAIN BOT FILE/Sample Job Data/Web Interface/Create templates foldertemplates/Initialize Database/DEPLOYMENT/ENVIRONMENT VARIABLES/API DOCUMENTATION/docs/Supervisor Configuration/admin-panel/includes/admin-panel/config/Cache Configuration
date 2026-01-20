@@ -1,0 +1,6 @@
+# Install Redis
+sudo apt install redis-server
+
+# Configure in .env
+echo "REDIS_HOST=localhost" >> telegram-bot/.env
+echo "REDIS_PORT=6379" >> telegram-bot/.env
