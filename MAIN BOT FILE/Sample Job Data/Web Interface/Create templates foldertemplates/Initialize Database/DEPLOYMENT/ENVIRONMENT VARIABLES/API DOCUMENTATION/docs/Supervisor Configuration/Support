@@ -1,0 +1,47 @@
+
+### **24. docs/SETUP.md**
+```markdown
+# ZewedJobs Setup Guide
+
+## Table of Contents
+1. [System Requirements](#system-requirements)
+2. [Quick Start](#quick-start)
+3. [Detailed Setup](#detailed-setup)
+4. [Configuration](#configuration)
+5. [Testing](#testing)
+6. [Troubleshooting](#troubleshooting)
+7. [Next Steps](#next-steps)
+
+## System Requirements
+
+### Minimum Requirements
+- **Operating System:** Ubuntu 20.04+, macOS 10.15+, Windows 10+
+- **RAM:** 2GB minimum, 4GB recommended
+- **Storage:** 2GB free space
+- **Internet:** Broadband connection
+
+### Software Requirements
+- **Python:** 3.11 or higher
+- **PHP:** 8.0 or higher
+- **MySQL:** 8.0 or higher
+- **Git:** Latest version
+- **Composer:** (Optional) for PHP dependencies
+
+### Development Tools (Optional)
+- **Visual Studio Code** or any code editor
+- **Postman** or **curl** for API testing
+- **MySQL Workbench** or **phpMyAdmin**
+
+## Quick Start
+
+### One-Command Setup (Recommended)
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/zewedjobs-complete.git
+cd zewedjobs-complete
+
+# Make the setup script executable
+chmod +x RUN_ME_FIRST.sh
+
+# Run the setup script
+./RUN_ME_FIRST.sh
