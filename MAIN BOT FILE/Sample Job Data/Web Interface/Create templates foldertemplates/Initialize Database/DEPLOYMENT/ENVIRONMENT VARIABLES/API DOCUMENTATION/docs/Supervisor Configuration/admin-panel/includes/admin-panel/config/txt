@@ -1,0 +1,6 @@
+
+## **🚀 How to Use These Files**
+
+1. **Create the directory structure:**
+```bash
+mkdir -p zewedjobs-complete/{admin-panel/{config,logs,includes},telegram-bot,shared-database/backups,scripts,docker,docs}
