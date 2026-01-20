@@ -1,0 +1,12 @@
+# Application logs
+telegram-bot/bot.log
+telegram-bot/web_dashboard.log
+admin-panel/logs/errors.log
+
+# System logs
+/var/log/mysql/error.log
+/var/log/nginx/error.log
+/var/log/syslog
+
+# Supervisor logs (if using)
+/var/log/supervisor/zewedjobs*.log
