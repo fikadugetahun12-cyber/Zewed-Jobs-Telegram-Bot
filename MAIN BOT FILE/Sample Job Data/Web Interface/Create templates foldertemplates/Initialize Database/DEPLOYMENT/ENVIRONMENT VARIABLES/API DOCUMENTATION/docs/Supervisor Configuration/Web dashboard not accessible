@@ -1,0 +1,9 @@
+# Check if Flask app is running
+netstat -tlnp | grep :5000
+
+# Check Flask logs
+tail -f telegram-bot/logs/web_dashboard.log
+
+# Check firewall
+sudo ufw status
+sudo ufw allow 5000
