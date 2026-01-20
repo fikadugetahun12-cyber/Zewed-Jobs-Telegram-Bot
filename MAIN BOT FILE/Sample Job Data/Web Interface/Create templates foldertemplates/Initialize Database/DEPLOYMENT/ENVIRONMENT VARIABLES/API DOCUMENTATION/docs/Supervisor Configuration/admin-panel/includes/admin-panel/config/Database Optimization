@@ -1,0 +1,7 @@
+-- Add indexes
+CREATE INDEX idx_jobs_category ON jobs(category);
+CREATE INDEX idx_jobs_location ON jobs(location);
+CREATE INDEX idx_users_email ON users(email);
+
+-- Optimize tables
+OPTIMIZE TABLE jobs, users, applications;
