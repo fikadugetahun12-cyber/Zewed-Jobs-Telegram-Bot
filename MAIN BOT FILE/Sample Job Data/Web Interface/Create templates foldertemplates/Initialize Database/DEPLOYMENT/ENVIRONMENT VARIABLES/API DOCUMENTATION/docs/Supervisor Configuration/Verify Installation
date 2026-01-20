@@ -1,0 +1,5 @@
+# Check if services are running
+ps aux | grep -E "(bot.py|web_dashboard.py|php)"
+
+# Check ports
+netstat -tlnp | grep -E "(8080|5000)"
