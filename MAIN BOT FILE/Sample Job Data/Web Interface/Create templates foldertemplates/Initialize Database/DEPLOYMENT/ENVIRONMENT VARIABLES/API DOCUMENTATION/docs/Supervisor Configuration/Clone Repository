@@ -1,0 +1,8 @@
+# Clone using HTTPS
+git clone https://github.com/yourusername/zewedjobs-complete.git
+
+# Or using SSH
+git clone git@github.com:yourusername/zewedjobs-complete.git
+
+# Navigate to project directory
+cd zewedjobs-complete
