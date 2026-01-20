@@ -1,0 +1,9 @@
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "python telegram-bot/bot.py & python telegram-bot/web_dashboard.py & php -S 0.0.0.0:8080 -t admin-panel",
+    "healthcheckPath": "/health"
+  }
+}
