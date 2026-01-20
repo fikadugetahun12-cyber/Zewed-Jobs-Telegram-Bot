@@ -1,0 +1,8 @@
+# Manual backup
+./scripts/backup-database.sh
+
+# Schedule daily backups (add to crontab)
+0 2 * * * /path/to/zewedjobs-complete/scripts/backup-database.sh
+
+# Restore from backup
+mysql -u root -p zewedjobs_admin < backup.sql
