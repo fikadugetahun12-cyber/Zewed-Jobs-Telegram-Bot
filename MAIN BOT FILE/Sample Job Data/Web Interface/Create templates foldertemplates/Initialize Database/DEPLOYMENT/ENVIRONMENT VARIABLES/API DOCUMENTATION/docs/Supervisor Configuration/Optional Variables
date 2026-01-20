@@ -1,0 +1,16 @@
+# Web Dashboard
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+
+# Email (for notifications)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_password
+
+# Redis (for caching)
+REDIS_URL=redis://localhost:6379
+
+# Logging
+LOG_LEVEL=INFO
+LOG_FILE=bot.log
