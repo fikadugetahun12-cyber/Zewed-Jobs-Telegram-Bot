@@ -1,0 +1,8 @@
+-- Add indexes for frequently queried columns
+CREATE INDEX idx_jobs_status ON jobs(status);
+CREATE INDEX idx_users_telegram_id ON users(telegram_id);
+CREATE INDEX idx_applications_job_user ON applications(job_id, user_id);
+
+-- Regular maintenance
+OPTIMIZE TABLE jobs, users, applications;
+ANALYZE TABLE jobs, users, applications;
