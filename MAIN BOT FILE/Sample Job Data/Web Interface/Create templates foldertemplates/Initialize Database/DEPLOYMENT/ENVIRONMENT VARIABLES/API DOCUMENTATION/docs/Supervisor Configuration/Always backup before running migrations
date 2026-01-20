@@ -1,0 +1,8 @@
+# Backup
+mysqldump -u root -p zewedjobs_admin > backup_$(date +%Y%m%d).sql
+
+# Run migration
+mysql -u root -p zewedjobs_admin < migrations/v2.0.sql
+
+# Verify
+mysql -u root -p -e "USE zewedjobs_admin; SHOW TABLES;"
