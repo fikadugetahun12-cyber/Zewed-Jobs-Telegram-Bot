@@ -1,0 +1,22 @@
+async def contact_card(update: Update, context: CallbackContext):
+    """Send contact card with clickable phone"""
+    contact_info = {
+        "phone_number": "+251924858244",
+        "first_name": "Zewed Jobs",
+        "last_name": "Support"
+    }
+    
+    await update.message.reply_contact(
+        phone_number=contact_info["phone_number"],
+        first_name=contact_info["first_name"],
+        last_name=contact_info["last_name"]
+    )
+    
+    await update.message.reply_text(
+        "📞 *Quick Contact*\n\n"
+        "• Tap the contact above to save\n"
+        "• Call directly: +251 924858244\n"
+        "• WhatsApp: +251 924858244\n\n"
+        "*Emergency:* +251 919852904",
+        parse_mode="Markdown"
+    )
