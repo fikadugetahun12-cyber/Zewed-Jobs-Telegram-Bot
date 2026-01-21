@@ -1,0 +1,393 @@
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CallbackContext, ConversationHandler
+from payments.payment_processor import PaymentProcessor
+from models.payment import PaymentModel
+from database import db
+
+# Conversation states
+SELECT_PLAN, SELECT_METHOD, CONFIRM_PAYMENT, PROCESS_PAYMENT = range(4)
+
+payment_processor = PaymentProcessor()
+
+async def show_pricing(update: Update, context: CallbackContext):
+    """Show subscription plans and pricing"""
+    user_id = update.effective_user.id
+    
+    # Check if user is employer
+    cursor = db.get_cursor()
+    cursor.execute("SELECT user_type FROM users WHERE telegram_id = %s", (user_id,))
+    user = cursor.fetchone()
+    cursor.close()
+    
+    if not user or user['user_type'] != 'employer':
+        await update.message.reply_text(
+            "⚠️ *Employers Only*\n\n"
+            "Subscription plans are available for employers only.\n"
+            "Please update your account type in profile settings.",
+            parse_mode="Markdown"
+        )
+        return
+    
+    # Get subscription plans
+    cursor = db.get_cursor()
+    cursor.execute("SELECT * FROM subscription_plans WHERE is_active = TRUE ORDER BY price_monthly ASC")
+    plans = cursor.fetchall()
+    cursor.close()
+    
+    if not plans:
+        await update.message.reply_text("No subscription plans available at the moment.")
+        return
+    
+    # Display plans
+    plans_text = "💰 *Subscription Plans*\n\n"
+    plans_text += "Choose a plan that fits your needs:\n\n"
+    
+    keyboard = []
+    
+    for plan in plans:
+        monthly_price = f"ETB {plan['price_monthly']:,.2f}/month"
+        yearly_price = f"ETB {plan['price_yearly']:,.2f}/year" if plan['price_yearly'] > 0 else "N/A"
+        
+        plans_text += f"*{plan['name']}*\n"
+        plans_text += f"{plan['description']}\n"
+        plans_text += f"📅 {plan['job_posts_limit']} job posts | "
+        plans_text += f"⏰ {plan['job_duration_days']} days duration\n"
+        plans_text += f"💰 Monthly: {monthly_price}\n"
+        if plan['price_yearly'] > 0:
+            yearly_savings = ((plan['price_monthly'] * 12) - plan['price_yearly']) / (plan['price_monthly'] * 12) * 100
+            plans_text += f"💰 Yearly: {yearly_price} (Save {yearly_savings:.0f}%)\n"
+        
+        # Features
+        features = eval(plan['features']) if isinstance(plan['features'], str) else plan['features']
+        for feature, value in features.items():
+            if value is True:
+                plans_text += f"  ✓ {feature.replace('_', ' ').title()}\n"
+            elif value and value is not False:
+                plans_text += f"  ✓ {feature.replace('_', ' ').title()}: {value}\n"
+        
+        plans_text += "\n"
+        
+        # Add plan selection buttons
+        if plan['price_monthly'] > 0:
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"📅 {plan['name']} - Monthly",
+                    callback_data=f"plan_{plan['id']}_monthly"
+                ),
+                InlineKeyboardButton(
+                    f"📅 {plan['name']} - Yearly",
+                    callback_data=f"plan_{plan['id']}_yearly"
+                ) if plan['price_yearly'] > 0 else InlineKeyboardButton("", callback_data="none")
+            ])
+        else:
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"🎯 {plan['name']} - FREE",
+                    callback_data=f"plan_{plan['id']}_free"
+                )
+            ])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_menu")])
+    
+    await update.message.reply_text(
+        plans_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def select_payment_method(update: Update, context: CallbackContext):
+    """Select payment method for chosen plan"""
+    query = update.callback_query
+    await query.answer()
+    
+    # Parse plan selection
+    data = query.data.split("_")
+    plan_id = int(data[1])
+    billing_cycle = data[2]
+    
+    # Store in context
+    context.user_data['selected_plan'] = plan_id
+    context.user_data['billing_cycle'] = billing_cycle
+    
+    # Get plan details
+    cursor = db.get_cursor()
+    cursor.execute("SELECT * FROM subscription_plans WHERE id = %s", (plan_id,))
+    plan = cursor.fetchone()
+    cursor.close()
+    
+    if not plan:
+        await query.message.reply_text("Plan not found.")
+        return ConversationHandler.END
+    
+    # Calculate amount
+    if billing_cycle == "yearly":
+        amount = float(plan['price_yearly'])
+        period = "year"
+    elif billing_cycle == "monthly":
+        amount = float(plan['price_monthly'])
+        period = "month"
+    else:  # free
+        amount = 0.00
+        period = "trial"
+    
+    # Store amount
+    context.user_data['amount'] = amount
+    context.user_data['plan_name'] = plan['name']
+    
+    if amount == 0:
+        # Free plan - skip payment
+        return await process_free_subscription(update, context)
+    
+    # Show payment methods
+    available_methods = payment_processor.get_available_methods(amount, "ETB")
+    
+    if not available_methods:
+        await query.message.reply_text(
+            "❌ No payment methods available for this amount.\n"
+            "Please contact support."
+        )
+        return ConversationHandler.END
+    
+    methods_text = f"💳 *Select Payment Method*\n\n"
+    methods_text += f"Plan: *{plan['name']}*\n"
+    methods_text += f"Amount: *ETB {amount:,.2f}* per {period}\n\n"
+    methods_text += "Choose how you want to pay:\n"
+    
+    keyboard = []
+    
+    for method in available_methods:
+        keyboard.append([
+            InlineKeyboardButton(
+                method['name'],
+                callback_data=f"method_{method['id']}"
+            )
+        ])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Back to Plans", callback_data="back_to_plans")])
+    
+    await query.message.edit_text(
+        methods_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    
+    return SELECT_METHOD
+
+async def process_payment(update: Update, context: CallbackContext):
+    """Process payment with selected method"""
+    query = update.callback_query
+    await query.answer()
+    
+    payment_method = query.data.replace("method_", "")
+    
+    # Get data from context
+    plan_id = context.user_data.get('selected_plan')
+    billing_cycle = context.user_data.get('billing_cycle')
+    amount = context.user_data.get('amount')
+    plan_name = context.user_data.get('plan_name')
+    
+    user_id = update.effective_user.id
+    
+    # Prepare payment metadata
+    metadata = {
+        "service_type": "subscription",
+        "plan_id": plan_id,
+        "plan_name": plan_name,
+        "billing_cycle": billing_cycle,
+        "user_id": user_id
+    }
+    
+    # Initiate payment
+    result = await payment_processor.initiate_payment(
+        user_id=user_id,
+        amount=amount,
+        description=f"Zewed Jobs: {plan_name} Subscription ({billing_cycle})",
+        payment_method=payment_method,
+        metadata=metadata
+    )
+    
+    if not result["success"]:
+        await query.message.reply_text(
+            f"❌ Payment initiation failed:\n{result['error']}"
+        )
+        return ConversationHandler.END
+    
+    # Store payment ID in context
+    context.user_data['payment_id'] = result['payment_id']
+    
+    # Show payment instructions based on method
+    payment_methods_info = payment_processor.payment_methods
+    method_name = payment_methods_info[payment_method]['name']
+    
+    instructions_text = f"💰 *Complete Your Payment*\n\n"
+    instructions_text += f"Plan: *{plan_name}*\n"
+    instructions_text += f"Amount: *ETB {amount:,.2f}*\n"
+    instructions_text += f"Method: *{method_name}*\n"
+    instructions_text += f"Payment ID: `{result['payment_id']}`\n\n"
+    
+    if payment_method == "telebirr":
+        if result.get('qr_code'):
+            # Send QR code image (you would implement this)
+            instructions_text += "1. Scan the QR code with TeleBirr app\n"
+            instructions_text += "2. OR click the link below to pay\n"
+            instructions_text += "3. Complete payment in TeleBirr\n"
+            
+            # Send QR code (placeholder - implement actual QR generation)
+            # await query.message.reply_photo(photo=result['qr_code'])
+        
+        instructions_text += f"\n🔗 [Click here to pay]({result['payment_url']})"
+        
+    elif payment_method == "cbe_birr":
+        instructions_text += "📱 *Payment Instructions:*\n"
+        for instruction in result.get('instructions', []):
+            instructions_text += f"• {instruction}\n"
+        
+        instructions_text += "\n1. Check your phone for CBE Birr request\n"
+        instructions_text += "2. Approve the payment in CBE Birr app\n"
+        instructions_text += "3. Return here after payment\n"
+    
+    elif payment_method == "stripe":
+        instructions_text += "💳 *Card Payment Instructions:*\n"
+        instructions_text += "1. Click the link below to pay\n"
+        instructions_text += "2. Enter your card details\n"
+        instructions_text += "3. Complete the 3D Secure verification\n"
+        instructions_text += "4. Return here after payment\n"
+        
+        # For Stripe, you might use a web payment flow
+        # instructions_text += f"\n🔗 [Pay with Card]({result['payment_url']})"
+    
+    instructions_text += "\n\n⚠️ *Important:*\n"
+    instructions_text += "• Keep this Payment ID for reference\n"
+    instructions_text += "• Payment may take a few minutes to process\n"
+    instructions_text += "• Contact support if you face any issues\n"
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ I've Paid", callback_data="check_payment_status")],
+        [InlineKeyboardButton("🔄 Refresh Status", callback_data="check_payment_status")],
+        [InlineKeyboardButton("❌ Cancel Payment", callback_data="cancel_payment")]
+    ]
+    
+    await query.message.edit_text(
+        instructions_text,
+        parse_mode="Markdown",
+        disable_web_page_preview=True,
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    
+    return PROCESS_PAYMENT
+
+async def check_payment_status(update: Update, context: CallbackContext):
+    """Check payment status"""
+    query = update.callback_query
+    await query.answer()
+    
+    payment_id = context.user_data.get('payment_id')
+    
+    if not payment_id:
+        await query.message.reply_text("No active payment found.")
+        return ConversationHandler.END
+    
+    # Verify payment
+    result = await payment_processor.verify_payment(payment_id)
+    
+    if not result["success"]:
+        await query.message.reply_text(
+            f"❌ Payment verification failed:\n{result['error']}"
+        )
+        return
+    
+    status = result["status"]
+    
+    if status == "completed":
+        # Payment successful
+        await query.message.edit_text(
+            "🎉 *Payment Successful!*\n\n"
+            "Thank you for your payment. Your subscription has been activated.\n\n"
+            "You can now:\n"
+            "• Post jobs according to your plan\n"
+            "• Access premium features\n"
+            "• Get priority support\n\n"
+            "Thank you for choosing Zewed Jobs!",
+            parse_mode="Markdown"
+        )
+        return ConversationHandler.END
+    
+    elif status == "pending":
+        # Still pending
+        keyboard = [
+            [InlineKeyboardButton("🔄 Check Again", callback_data="check_payment_status")],
+            [InlineKeyboardButton("❌ Cancel", callback_data="cancel_payment")]
+        ]
+        
+        await query.message.edit_text(
+            "⏳ *Payment Processing*\n\n"
+            "Your payment is still being processed. This may take a few minutes.\n\n"
+            f"Payment ID: `{payment_id}`\n\n"
+            "Please wait a moment and check again.",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return PROCESS_PAYMENT
+    
+    else:  # failed
+        await query.message.edit_text(
+            "❌ *Payment Failed*\n\n"
+            "Your payment was not successful.\n\n"
+            "Please try again or contact support if you need assistance.",
+            parse_mode="Markdown"
+        )
+        return ConversationHandler.END
+
+async def process_free_subscription(update: Update, context: CallbackContext):
+    """Process free subscription (trial)"""
+    query = update.callback_query
+    await query.answer()
+    
+    plan_id = context.user_data.get('selected_plan')
+    user_id = update.effective_user.id
+    
+    # Activate free subscription
+    cursor = db.get_cursor()
+    
+    # Get plan details
+    cursor.execute("SELECT * FROM subscription_plans WHERE id = %s", (plan_id,))
+    plan = cursor.fetchone()
+    
+    if not plan:
+        await query.message.reply_text("Plan not found.")
+        return ConversationHandler.END
+    
+    # Calculate end date (7 days for trial)
+    from datetime import datetime, timedelta
+    start_date = datetime.now().date()
+    end_date = start_date + timedelta(days=7)
+    
+    # Create subscription
+    cursor.execute("""
+        INSERT INTO user_subscriptions 
+        (user_id, plan_id, status, start_date, end_date, auto_renew)
+        VALUES (%s, %s, 'active', %s, %s, FALSE)
+        ON DUPLICATE KEY UPDATE
+        plan_id = VALUES(plan_id),
+        status = 'active',
+        start_date = VALUES(start_date),
+        end_date = VALUES(end_date),
+        auto_renew = FALSE
+    """, (user_id, plan_id, start_date, end_date))
+    
+    db.connection.commit()
+    cursor.close()
+    
+    await query.message.edit_text(
+        "🎉 *Free Trial Activated!*\n\n"
+        f"Your *{plan['name']}* trial has been activated.\n\n"
+        f"📅 *Valid until:* {end_date.strftime('%B %d, %Y')}\n\n"
+        "You can now:\n"
+        f"• Post {plan['job_posts_limit']} job(s)\n"
+        "• Test premium features\n"
+        "• Upgrade anytime for full access\n\n"
+        "Enjoy your trial!",
+        parse_mode="Markdown"
+    )
+    
+    return ConversationHandler.END
