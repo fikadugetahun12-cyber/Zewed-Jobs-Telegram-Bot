@@ -1,0 +1,38 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Config:
+    # Bot
+    BOT_TOKEN = os.getenv("BOT_TOKEN")
+    ADMIN_IDS = [int(id.strip()) for id in os.getenv("ADMIN_IDS", "").split(",") if id.strip()]
+    
+    # Database
+    DB_HOST = os.getenv("DB_HOST")
+    DB_NAME = os.getenv("DB_NAME")
+    DB_USER = os.getenv("DB_USER")
+    DB_PASS = os.getenv("DB_PASS")
+    
+    # Payment Gateways
+    TELEBIRR_MERCHANT_ID = os.getenv("TELEBIRR_MERCHANT_ID")
+    TELEBIRR_MERCHANT_KEY = os.getenv("TELEBIRR_MERCHANT_KEY")
+    
+    CBE_CLIENT_ID = os.getenv("CBE_CLIENT_ID")
+    CBE_CLIENT_SECRET = os.getenv("CBE_CLIENT_SECRET")
+    CBE_MERCHANT_ID = os.getenv("CBE_MERCHANT_ID")
+    
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+    STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+    
+    # Webhook URL for payment callbacks
+    BOT_WEBHOOK_URL = os.getenv("BOT_WEBHOOK_URL", "https://yourdomain.com")
+    
+    # Payment Settings
+    CURRENCY = "ETB"
+    TRIAL_PERIOD_DAYS = 7
+    
+    # Job categories (keep existing)
+    JOB_CATEGORIES = [...]
+    JOB_TYPES = {...}
