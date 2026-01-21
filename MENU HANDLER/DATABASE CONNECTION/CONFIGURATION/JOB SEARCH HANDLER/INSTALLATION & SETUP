@@ -1,0 +1,34 @@
+# Create requirements.txt
+echo "python-telegram-bot==20.7
+python-dotenv==1.0.0
+mysql-connector-python==8.1.0" > requirements.txt
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create .env file (REPLACE WITH YOUR ACTUAL VALUES)
+echo "# Telegram Bot
+BOT_TOKEN=YOUR_NEW_SECURE_TOKEN_HERE
+ADMIN_IDS=YOUR_TELEGRAM_ID_HERE
+
+# Database
+DB_HOST=localhost
+DB_NAME=zewedjobs_admin
+DB_USER=root
+DB_PASS=Desfil2026@
+
+# Security
+SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_hex(32))')" > .env
+
+# Add to gitignore
+echo ".env
+__pycache__/
+*.pyc
+venv/
+*.log" > .gitignore
+
+# Initialize database
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS zewedjobs_admin;"
+
+# Run the bot
+python bot.py
