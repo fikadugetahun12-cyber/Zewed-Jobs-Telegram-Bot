@@ -1,0 +1,10 @@
+-- Create production database
+CREATE DATABASE zewedjobs_production CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Create dedicated user (NEVER use root in production)
+CREATE USER 'zewedjobs_user'@'%' IDENTIFIED BY 'StrongPassword123!';
+GRANT ALL PRIVILEGES ON zewedjobs_production.* TO 'zewedjobs_user'@'%';
+FLUSH PRIVILEGES;
+
+-- Run on your server:
+mysql -u zewedjobs_user -p zewedjobs_production < database_schema.sql
