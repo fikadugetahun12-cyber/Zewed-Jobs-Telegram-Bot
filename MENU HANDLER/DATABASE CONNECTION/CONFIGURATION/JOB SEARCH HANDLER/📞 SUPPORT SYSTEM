@@ -1,0 +1,267 @@
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CallbackContext
+from database import db
+import re
+from datetime import datetime
+
+async def support(update: Update, context: CallbackContext):
+    """Customer support"""
+    support_text = """
+📞 *Zewed Jobs Support*
+
+*Need help? Here's how to reach us:*
+
+💬 *Bot Support:* @zewedjobs_support_bot
+📧 *Email:* support@zewedjobs.com
+📱 *Phone:* +251 924858244
+🕒 *Hours:* 9AM - 6PM EAT, Mon-Fri
+
+*Common Issues:*
+🔹 Payments: payments@zewedjobs.com
+🔹 Technical: tech@zewedjobs.com
+🔹 Business: partners@zewedjobs.com
+
+*Emergency (24/7):*
+For urgent payment issues, contact: +251 919852904
+"""
+    
+    # Create support menu buttons
+    keyboard = [
+        [InlineKeyboardButton("📨 Contact Support", callback_data="contact_support")],
+        [InlineKeyboardButton("❓ FAQ", callback_data="faq")],
+        [InlineKeyboardButton("📋 Report Issue", callback_data="report_issue")],
+        [InlineKeyboardButton("💬 Live Chat", url="https://t.me/zewedjobs_support_bot")]
+    ]
+    
+    await update.message.reply_text(
+        support_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def contact_support(update: Update, context: CallbackContext):
+    """Contact support form"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.message.reply_text(
+        "📨 *Contact Support*\n\n"
+        "Please describe your issue and we'll get back to you within 24 hours.\n\n"
+        "Send your message now:",
+        parse_mode="Markdown"
+    )
+    
+    # Store that user is in support mode
+    context.user_data['awaiting_support_message'] = True
+
+async def handle_support_message(update: Update, context: CallbackContext):
+    """Handle user's support message"""
+    if context.user_data.get('awaiting_support_message'):
+        user = update.effective_user
+        message = update.message.text
+        
+        # Log support request to database
+        cursor = db.get_cursor()
+        cursor.execute("""
+            INSERT INTO support_tickets 
+            (user_id, username, message, status, created_at)
+            VALUES (%s, %s, %s, 'open', %s)
+        """, (user.id, user.username, message, datetime.now()))
+        
+        ticket_id = cursor.lastrowid
+        
+        # Notify admin
+        admin_message = f"""
+🚨 *New Support Ticket #{ticket_id}*
+
+*From:* {user.first_name} (@{user.username})
+*User ID:* {user.id}
+*Time:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+*Message:*
+{message}
+
+*Quick Actions:*
+/respond_{ticket_id} - Reply to user
+/close_{ticket_id} - Close ticket
+"""
+        
+        # Send to all admins (you'll implement this)
+        # for admin_id in Config.ADMIN_IDS:
+        #     await context.bot.send_message(
+        #         chat_id=admin_id,
+        #         text=admin_message,
+        #         parse_mode="Markdown"
+        #     )
+        
+        db.connection.commit()
+        cursor.close()
+        
+        # Clear support mode
+        context.user_data.pop('awaiting_support_message', None)
+        
+        await update.message.reply_text(
+            f"✅ *Support Ticket Submitted!*\n\n"
+            f"Ticket ID: *#{ticket_id}*\n"
+            f"We'll respond within 24 hours.\n\n"
+            f"You can also:\n"
+            f"• Email: support@zewedjobs.com\n"
+            f"• Call: +251 924858244",
+            parse_mode="Markdown"
+        )
+        
+        return
+    
+    # Check if it's a response to user's message
+    await handle_general_message(update, context)
+
+async def faq(update: Update, context: CallbackContext):
+    """Frequently Asked Questions"""
+    query = update.callback_query
+    await query.answer()
+    
+    faq_text = """
+❓ *Frequently Asked Questions*
+
+*Q1: How do I post a job?*
+A: Use /post command or click "📝 Post Job" in menu. You need an employer account.
+
+*Q2: Is posting jobs free?*
+A: First job is free! After that, you need a subscription plan.
+
+*Q3: How do I apply for jobs?*
+A: Browse jobs with /jobs, select a job, and click "Apply Now".
+
+*Q4: How do payments work?*
+A: We accept TeleBirr, CBE Birr, and cards. All payments are secure.
+
+*Q5: Can I edit my profile?*
+A: Yes! Use /profile to edit your information anytime.
+
+*Q6: How long do jobs stay active?*
+A: Regular jobs: 30 days. Promoted jobs: Up to 60 days.
+
+*Q7: Can I delete my account?*
+A: Contact support with your request.
+
+*Need more help? Contact support below.*
+"""
+    
+    keyboard = [
+        [InlineKeyboardButton("📨 Contact Support", callback_data="contact_support")],
+        [InlineKeyboardButton("🔙 Back", callback_data="back_to_support")]
+    ]
+    
+    await query.message.edit_text(
+        faq_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def report_issue(update: Update, context: CallbackContext):
+    """Report an issue"""
+    query = update.callback_query
+    await query.answer()
+    
+    report_text = """
+🚨 *Report an Issue*
+
+Please select the type of issue:
+
+1. *Technical Issue* - Bot not working, errors, etc.
+2. *Payment Issue* - Payment failed, refund needed, etc.
+3. *Job Issue* - Fake job, spam, inappropriate content.
+4. *User Issue* - Harassment, spam users, etc.
+5. *Other* - Any other issues.
+
+Click a button below or describe your issue.
+"""
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("🛠️ Technical", callback_data="report_technical"),
+            InlineKeyboardButton("💰 Payment", callback_data="report_payment")
+        ],
+        [
+            InlineKeyboardButton("📋 Job", callback_data="report_job"),
+            InlineKeyboardButton("👤 User", callback_data="report_user")
+        ],
+        [
+            InlineKeyboardButton("📝 Other", callback_data="report_other"),
+            InlineKeyboardButton("🔙 Back", callback_data="back_to_support")
+        ]
+    ]
+    
+    await query.message.edit_text(
+        report_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def handle_report(update: Update, context: CallbackContext):
+    """Handle specific report type"""
+    query = update.callback_query
+    await query.answer()
+    
+    report_type = query.data.replace("report_", "")
+    
+    # Map report types to descriptions
+    type_descriptions = {
+        "technical": "Technical Issue",
+        "payment": "Payment Issue",
+        "job": "Job Listing Issue",
+        "user": "User Conduct Issue",
+        "other": "Other Issue"
+    }
+    
+    context.user_data['report_type'] = report_type
+    
+    await query.message.reply_text(
+        f"📋 *Report: {type_descriptions[report_type]}*\n\n"
+        f"Please provide details about the issue:\n\n"
+        f"For job/user issues, include the ID/username.\n"
+        f"For payment issues, include the transaction ID.\n\n"
+        f"Describe what happened:",
+        parse_mode="Markdown"
+    )
+    
+    # Store that user is in report mode
+    context.user_data['awaiting_report_details'] = True
+
+async def handle_general_message(update: Update, context: CallbackContext):
+    """Handle general messages (not commands)"""
+    # This function handles when users just type messages
+    
+    user_message = update.message.text.lower()
+    
+    # Auto-detect support needs
+    if any(word in user_message for word in ['help', 'support', 'problem', 'issue', 'error']):
+        await update.message.reply_text(
+            "👋 Need help? Try these options:\n\n"
+            "• Use /support for support contacts\n"
+            "• Use /faq for common questions\n"
+            "• Type 'contact support' to message us\n\n"
+            "Or you can call: +251 924858244",
+            parse_mode="Markdown"
+        )
+    
+    elif any(word in user_message for word in ['hi', 'hello', 'hey', 'greetings']):
+        await update.message.reply_text(
+            "👋 Hello! Welcome to Zewed Jobs!\n\n"
+            "I can help you:\n"
+            "• Find jobs - Use /jobs\n"
+            "• Post jobs - Use /post\n"
+            "• Manage profile - Use /profile\n"
+            "• Get support - Use /support\n\n"
+            "What would you like to do?",
+            parse_mode="Markdown"
+        )
+    
+    else:
+        # Default response
+        await update.message.reply_text(
+            "🤖 I'm Zewed Jobs Bot!\n\n"
+            "I help connect job seekers with employers in Ethiopia.\n\n"
+            "Use /start to see the main menu or /help for commands.",
+            parse_mode="Markdown"
+        )
