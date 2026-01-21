@@ -1,0 +1,86 @@
+import os
+import requests
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class GitHubIntegration:
+    def __init__(self):
+        self.github_token = os.getenv("GITHUB_TOKEN")
+        self.repo_owner = "yourusername"
+        self.repo_name = "zewedjobs-bot"
+        
+    async def github_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Check GitHub repository status"""
+        headers = {
+            "Authorization": f"token {self.github_token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        
+        # Get repo info
+        url = f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}"
+        response = requests.get(url, headers=headers)
+        repo_data = response.json()
+        
+        # Get latest commits
+        commits_url = f"{url}/commits"
+        commits_response = requests.get(commits_url, headers=headers, params={"per_page": 3})
+        commits_data = commits_response.json()
+        
+        message = f"""
+📊 *GitHub Status - Zewed Jobs Bot*
+
+📁 *Repository:* {repo_data['full_name']}
+⭐ *Stars:* {repo_data['stargazers_count']}
+🍴 *Forks:* {repo_data['forks_count']}
+🐛 *Issues:* {repo_data['open_issues_count']}
+🌿 *Branch:* {repo_data['default_branch']}
+
+*Latest Commits:*
+"""
+        
+        for commit in commits_data:
+            msg = commit['commit']['message'][:50]
+            author = commit['commit']['author']['name']
+            date = commit['commit']['author']['date'][:10]
+            message += f"• {msg}...\n  👤 {author} | 📅 {date}\n"
+        
+        keyboard = [
+            [InlineKeyboardButton("🔗 View on GitHub", url=repo_data['html_url'])],
+            [InlineKeyboardButton("🔄 Deploy Latest", callback_data="deploy_now")]
+        ]
+        
+        await update.message.reply_text(message, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+    
+    async def trigger_deploy(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Trigger deployment via GitHub Actions"""
+        query = update.callback_query
+        await query.answer()
+        
+        headers = {
+            "Authorization": f"token {self.github_token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        
+        # Trigger workflow
+        url = f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/actions/workflows/deploy.yml/dispatches"
+        data = {"ref": "main"}
+        
+        response = requests.post(url, json=data, headers=headers)
+        
+        if response.status_code == 204:
+            await query.message.reply_text(
+                "🚀 *Deployment Triggered!*\n\n"
+                "GitHub Actions workflow has been started.\n\n"
+                "Check status: [View Actions](https://github.com/{self.repo_owner}/{self.repo_name}/actions)",
+                parse_mode="Markdown"
+            )
+        else:
+            await query.message.reply_text(f"❌ Failed: {response.text}")
+
+# Add to your main bot.py
+github_integration = GitHubIntegration()
+application.add_handler(CommandHandler("github", github_integration.github_status))
+application.add_handler(CallbackQueryHandler(github_integration.trigger_deploy, pattern="^deploy_now$"))
