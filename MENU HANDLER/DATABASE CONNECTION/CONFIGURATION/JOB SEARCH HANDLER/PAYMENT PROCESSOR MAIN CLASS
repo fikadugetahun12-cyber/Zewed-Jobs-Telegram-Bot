@@ -1,0 +1,294 @@
+from payments.telebirr import TelebirrPayment
+from payments.cbe_birr import CBEBirrPayment
+from payments.stripe_handler import StripePayment
+from models.payment import PaymentModel
+from database import db
+import json
+
+class PaymentProcessor:
+    def __init__(self):
+        self.telebirr = TelebirrPayment()
+        self.cbe_birr = CBEBirrPayment()
+        self.stripe = StripePayment()
+        
+        # Payment method configuration
+        self.payment_methods = {
+            "telebirr": {
+                "name": "📱 TeleBirr",
+                "description": "Pay with TeleBirr mobile money",
+                "processor": self.telebirr,
+                "supported_currencies": ["ETB"],
+                "min_amount": 1,
+                "max_amount": 100000
+            },
+            "cbe_birr": {
+                "name": "🏦 CBE Birr",
+                "description": "Pay with CBE Birr mobile banking",
+                "processor": self.cbe_birr,
+                "supported_currencies": ["ETB"],
+                "min_amount": 1,
+                "max_amount": 50000
+            },
+            "stripe": {
+                "name": "💳 Credit/Debit Card",
+                "description": "Pay with international cards (Visa, MasterCard)",
+                "processor": self.stripe,
+                "supported_currencies": ["USD", "EUR", "GBP"],
+                "min_amount": 1,
+                "max_amount": 10000
+            }
+        }
+    
+    def get_available_methods(self, amount, currency="ETB"):
+        """Get available payment methods for amount and currency"""
+        available = []
+        
+        for method_id, method_info in self.payment_methods.items():
+            if currency in method_info["supported_currencies"]:
+                if method_info["min_amount"] <= amount <= method_info["max_amount"]:
+                    available.append({
+                        "id": method_id,
+                        "name": method_info["name"],
+                        "description": method_info["description"],
+                        "min_amount": method_info["min_amount"],
+                        "max_amount": method_info["max_amount"]
+                    })
+        
+        return available
+    
+    async def initiate_payment(self, user_id, amount, description, payment_method, metadata=None):
+        """Initiate payment process"""
+        # Validate payment method
+        if payment_method not in self.payment_methods:
+            return {"success": False, "error": "Invalid payment method"}
+        
+        # Validate amount
+        method_info = self.payment_methods[payment_method]
+        if not (method_info["min_amount"] <= amount <= method_info["max_amount"]):
+            return {
+                "success": False, 
+                "error": f"Amount must be between {method_info['min_amount']} and {method_info['max_amount']}"
+            }
+        
+        # Create payment record
+        payment_id = PaymentModel.create_payment(
+            user_id=user_id,
+            amount=amount,
+            description=description,
+            payment_method=payment_method,
+            metadata=metadata
+        )
+        
+        # Get user phone for mobile payments
+        cursor = db.get_cursor()
+        cursor.execute("SELECT phone FROM users WHERE telegram_id = %s", (user_id,))
+        user_data = cursor.fetchone()
+        cursor.close()
+        
+        customer_phone = user_data.get("phone") if user_data else None
+        
+        # Initiate payment based on method
+        if payment_method == "telebirr":
+            # Generate TeleBirr payment URL
+            callback_url = f"https://t.me/zewed_jobs_bot?start=payment_success_{payment_id}"
+            result = self.telebirr.generate_payment_url(
+                amount=amount,
+                payment_id=payment_id,
+                description=description,
+                callback_url=callback_url,
+                customer_phone=customer_phone
+            )
+            
+            if result["success"]:
+                return {
+                    "success": True,
+                    "payment_id": payment_id,
+                    "payment_url": result["payment_url"],
+                    "qr_code": result.get("qr_code"),
+                    "instructions": "Scan QR code or open link to pay with TeleBirr"
+                }
+            else:
+                return result
+        
+        elif payment_method == "cbe_birr":
+            if not customer_phone:
+                return {"success": False, "error": "Phone number required for CBE Birr"}
+            
+            result = self.cbe_birr.initiate_payment(
+                amount=amount,
+                payment_id=payment_id,
+                description=description,
+                customer_msisdn=customer_phone
+            )
+            
+            if result["success"]:
+                return {
+                    "success": True,
+                    "payment_id": payment_id,
+                    "transaction_id": result["transaction_id"],
+                    "instructions": result.get("instructions", []),
+                    "message": "Check your phone for CBE Birr payment request"
+                }
+            else:
+                return result
+        
+        elif payment_method == "stripe":
+            # For Stripe, create payment intent
+            result = self.stripe.create_payment_intent(
+                amount=amount,
+                currency="usd",  # Convert ETB to USD for international payments
+                description=description,
+                customer_email=metadata.get("email") if metadata else None,
+                metadata={"payment_id": payment_id, "user_id": user_id}
+            )
+            
+            if result["success"]:
+                return {
+                    "success": True,
+                    "payment_id": payment_id,
+                    "client_secret": result["client_secret"],
+                    "payment_intent_id": result["payment_intent_id"],
+                    "instructions": "Complete payment with your card"
+                }
+            else:
+                return result
+        
+        return {"success": False, "error": "Payment method not implemented"}
+    
+    async def verify_payment(self, payment_id):
+        """Verify payment status"""
+        # Get payment details
+        payment = PaymentModel.get_payment(payment_id)
+        if not payment:
+            return {"success": False, "error": "Payment not found"}
+        
+        # If already completed, return success
+        if payment["status"] == "completed":
+            return {
+                "success": True,
+                "status": "completed",
+                "payment_id": payment_id,
+                "amount": payment["amount"]
+            }
+        
+        # Verify based on payment method
+        payment_method = payment["payment_method"]
+        
+        if payment_method == "telebirr":
+            result = self.telebirr.verify_payment(payment_id)
+        elif payment_method == "cbe_birr":
+            # Get transaction ID from metadata
+            metadata = json.loads(payment["metadata"]) if payment["metadata"] else {}
+            transaction_id = metadata.get("transaction_id")
+            if not transaction_id:
+                return {"success": False, "error": "Transaction ID not found"}
+            result = self.cbe_birr.check_payment_status(transaction_id)
+        elif payment_method == "stripe":
+            # Stripe payments are verified via webhook
+            return {
+                "success": True,
+                "status": payment["status"],
+                "payment_id": payment_id,
+                "message": "Payment verification in progress"
+            }
+        else:
+            return {"success": False, "error": f"Unsupported payment method: {payment_method}"}
+        
+        # Update payment status if verification successful
+        if result["success"] and result["status"] in ["completed", "failed"]:
+            PaymentModel.update_payment_status(
+                payment_id=payment_id,
+                status=result["status"],
+                transaction_id=result.get("transaction_id")
+            )
+            
+            # If payment completed, activate subscription/promotion
+            if result["status"] == "completed":
+                await self.activate_paid_service(payment_id, payment["user_id"])
+        
+        return result
+    
+    async def activate_paid_service(self, payment_id, user_id):
+        """Activate subscription or promotion after successful payment"""
+        payment = PaymentModel.get_payment(payment_id)
+        if not payment:
+            return
+        
+        metadata = json.loads(payment["metadata"]) if payment["metadata"] else {}
+        service_type = metadata.get("service_type")
+        
+        if service_type == "subscription":
+            plan_id = metadata.get("plan_id")
+            billing_cycle = metadata.get("billing_cycle", "monthly")
+            
+            # Activate user subscription
+            await self.activate_subscription(user_id, plan_id, payment_id, billing_cycle)
+        
+        elif service_type == "job_promotion":
+            job_id = metadata.get("job_id")
+            promotion_type = metadata.get("promotion_type")
+            
+            # Activate job promotion
+            await self.activate_job_promotion(job_id, promotion_type, payment_id)
+    
+    async def activate_subscription(self, user_id, plan_id, payment_id, billing_cycle):
+        """Activate user subscription"""
+        cursor = db.get_cursor()
+        
+        # Get plan details
+        cursor.execute("SELECT * FROM subscription_plans WHERE id = %s", (plan_id,))
+        plan = cursor.fetchone()
+        
+        if not plan:
+            cursor.close()
+            return
+        
+        # Calculate end date
+        from datetime import datetime, timedelta
+        start_date = datetime.now().date()
+        
+        if billing_cycle == "yearly":
+            end_date = start_date + timedelta(days=365)
+        else:  # monthly
+            end_date = start_date + timedelta(days=30)
+        
+        # Create or update subscription
+        cursor.execute("""
+            INSERT INTO user_subscriptions 
+            (user_id, plan_id, payment_id, status, start_date, end_date, auto_renew)
+            VALUES (%s, %s, %s, 'active', %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+            plan_id = VALUES(plan_id),
+            payment_id = VALUES(payment_id),
+            status = 'active',
+            start_date = VALUES(start_date),
+            end_date = VALUES(end_date),
+            auto_renew = VALUES(auto_renew)
+        """, (user_id, plan_id, payment_id, start_date, end_date, True))
+        
+        db.connection.commit()
+        cursor.close()
+        
+        # Send notification to user
+        await self.send_subscription_activation_message(user_id, plan["name"], end_date)
+    
+    async def send_subscription_activation_message(self, user_id, plan_name, end_date):
+        """Send subscription activation message to user"""
+        # This would be implemented with your bot's messaging system
+        message = f"""
+✅ *Subscription Activated!*
+
+Your *{plan_name}* subscription has been activated successfully.
+
+📅 *Valid until:* {end_date.strftime('%B %d, %Y')}
+
+You can now:
+• Post jobs according to your plan limits
+• Access premium features
+• Get priority support
+
+Thank you for choosing Zewed Jobs!
+"""
+        # Send via Telegram bot
+        # await bot.send_message(chat_id=user_id, text=message, parse_mode="Markdown")
+        print(f"Subscription activated for user {user_id}: {plan_name}")
