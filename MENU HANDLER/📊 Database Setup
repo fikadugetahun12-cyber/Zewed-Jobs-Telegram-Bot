@@ -1,0 +1,26 @@
+-- Create database
+CREATE DATABASE zewedjobs_admin;
+
+-- Create users table
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    telegram_id BIGINT UNIQUE,
+    username VARCHAR(255),
+    full_name VARCHAR(255),
+    user_type ENUM('job_seeker', 'employer'),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create jobs table
+CREATE TABLE jobs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    employer_id INT,
+    title VARCHAR(255),
+    description TEXT,
+    requirements TEXT,
+    salary_range VARCHAR(100),
+    location VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (employer_id) REFERENCES users(id)
+);
