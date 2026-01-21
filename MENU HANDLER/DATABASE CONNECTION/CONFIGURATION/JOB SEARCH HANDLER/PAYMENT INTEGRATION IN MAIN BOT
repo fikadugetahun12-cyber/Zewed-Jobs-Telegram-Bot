@@ -1,0 +1,41 @@
+# Add to imports
+from handlers.payment_handlers import (
+    show_pricing, select_payment_method, process_payment, 
+    check_payment_status, SELECT_METHOD, PROCESS_PAYMENT
+)
+from models.payment import PaymentModel
+
+def main():
+    # ... existing code ...
+    
+    # Initialize payment tables
+    PaymentModel.create_payment_table()
+    
+    # Payment conversation handler
+    payment_conv = ConversationHandler(
+        entry_points=[
+            CommandHandler("pricing", show_pricing),
+            MessageHandler(filters.Regex("^(💰 Pricing|💎 Upgrade)$"), show_pricing)
+        ],
+        states={
+            SELECT_METHOD: [CallbackQueryHandler(select_payment_method, pattern="^method_")],
+            PROCESS_PAYMENT: [
+                CallbackQueryHandler(check_payment_status, pattern="^check_payment_status$"),
+                CallbackQueryHandler(process_payment, pattern="^method_")
+            ]
+        },
+        fallbacks=[
+            CallbackQueryHandler(lambda u, c: ConversationHandler.END, pattern="^cancel_payment$"),
+            CallbackQueryHandler(show_pricing, pattern="^back_to_plans$")
+        ],
+        allow_reentry=True
+    )
+    
+    # Add payment handler
+    application.add_handler(payment_conv)
+    
+    # Add callback handlers
+    application.add_handler(CallbackQueryHandler(select_payment_method, pattern="^plan_"))
+    application.add_handler(CallbackQueryHandler(show_pricing, pattern="^back_to_menu$"))
+    
+    # ... rest of the code ...
