@@ -1,0 +1,6 @@
+# Test commands
+1. /support - Should show contact info
+2. Click "Contact Support" - Should open form
+3. Send a test message - Should create ticket
+4. /faq - Should show FAQ
+5. /admin_support - Should show dashboard (admin only)
