@@ -1,0 +1,175 @@
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CallbackContext
+from database import db
+from config import Config
+import re
+
+async def admin_support_dashboard(update: Update, context: CallbackContext):
+    """Admin support dashboard"""
+    user_id = update.effective_user.id
+    
+    # Check if user is admin
+    if user_id not in Config.ADMIN_IDS:
+        await update.message.reply_text("⛔ Admin access required.")
+        return
+    
+    cursor = db.get_cursor()
+    
+    # Get ticket statistics
+    cursor.execute("""
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open,
+            SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+            SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved
+        FROM support_tickets
+    """)
+    stats = cursor.fetchone()
+    
+    # Get recent tickets
+    cursor.execute("""
+        SELECT id, user_id, username, message, status, created_at
+        FROM support_tickets
+        WHERE status IN ('open', 'in_progress')
+        ORDER BY created_at DESC
+        LIMIT 10
+    """)
+    recent_tickets = cursor.fetchall()
+    
+    cursor.close()
+    
+    # Build dashboard message
+    dashboard_text = f"""
+👨‍💼 *Admin Support Dashboard*
+
+📊 *Statistics:*
+• Total Tickets: {stats['total']}
+• 🔴 Open: {stats['open']}
+• 🟡 In Progress: {stats['in_progress']}
+• 🟢 Resolved: {stats['resolved']}
+
+📋 *Recent Open Tickets:*
+"""
+    
+    if recent_tickets:
+        for ticket in recent_tickets:
+            status_icon = "🔴" if ticket['status'] == 'open' else "🟡"
+            dashboard_text += f"\n{status_icon} *#{ticket['id']}* - @{ticket['username'] or 'No username'}"
+            dashboard_text += f"\n   📅 {ticket['created_at'].strftime('%b %d %H:%M')}"
+            dashboard_text += f"\n   📝 {ticket['message'][:50]}..."
+    else:
+        dashboard_text += "\n✅ No open tickets!"
+    
+    # Create admin keyboard
+    keyboard = [
+        [InlineKeyboardButton("📋 View All Tickets", callback_data="admin_view_tickets")],
+        [InlineKeyboardButton("🔍 Search Ticket", callback_data="admin_search_ticket")],
+        [InlineKeyboardButton("📊 Statistics", callback_data="admin_stats")],
+        [InlineKeyboardButton("⚙️ FAQ Management", callback_data="admin_faq")]
+    ]
+    
+    await update.message.reply_text(
+        dashboard_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def respond_to_ticket(update: Update, context: CallbackContext):
+    """Admin responds to a ticket"""
+    # Extract ticket ID from command like /respond_123
+    command = update.message.text
+    ticket_id = int(command.split('_')[1]) if '_' in command else None
+    
+    if not ticket_id:
+        await update.message.reply_text("Usage: /respond_<ticket_id>")
+        return
+    
+    # Get ticket details
+    cursor = db.get_cursor()
+    cursor.execute("""
+        SELECT st.*, u.full_name, u.phone
+        FROM support_tickets st
+        LEFT JOIN users u ON st.user_id = u.telegram_id
+        WHERE st.id = %s
+    """, (ticket_id,))
+    
+    ticket = cursor.fetchone()
+    
+    if not ticket:
+        await update.message.reply_text(f"Ticket #{ticket_id} not found.")
+        cursor.close()
+        return
+    
+    ticket_info = f"""
+🎫 *Ticket #{ticket['id']}*
+
+*User:* {ticket['full_name'] or 'N/A'}
+*Username:* @{ticket['username'] or 'N/A'}
+*Phone:* {ticket['phone'] or 'N/A'}
+*Status:* {ticket['status'].upper()}
+*Created:* {ticket['created_at'].strftime('%Y-%m-%d %H:%M:%S')}
+
+*Message:*
+{ticket['message']}
+
+*Type your response below:*
+"""
+    
+    # Store ticket ID for response
+    context.user_data['responding_to_ticket'] = ticket_id
+    context.user_data['ticket_user_id'] = ticket['user_id']
+    
+    cursor.close()
+    
+    await update.message.reply_text(
+        ticket_info,
+        parse_mode="Markdown"
+    )
+
+async def handle_admin_response(update: Update, context: CallbackContext):
+    """Handle admin's response to ticket"""
+    if 'responding_to_ticket' in context.user_data:
+        ticket_id = context.user_data['responding_to_ticket']
+        user_id = context.user_data['ticket_user_id']
+        response = update.message.text
+        
+        cursor = db.get_cursor()
+        
+        # Save response
+        cursor.execute("""
+            INSERT INTO support_responses (ticket_id, admin_id, response)
+            VALUES (%s, %s, %s)
+        """, (ticket_id, update.effective_user.id, response))
+        
+        # Update ticket status
+        cursor.execute("""
+            UPDATE support_tickets 
+            SET status = 'in_progress', response = %s
+            WHERE id = %s
+        """, (response, ticket_id))
+        
+        db.connection.commit()
+        cursor.close()
+        
+        # Send response to user
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"📨 *Response to your support ticket #{ticket_id}*\n\n"
+                     f"{response}\n\n"
+                     f"If you need further assistance, reply to this message.",
+                parse_mode="Markdown"
+            )
+            
+            await update.message.reply_text(
+                f"✅ Response sent to user for ticket #{ticket_id}"
+            )
+            
+        except Exception as e:
+            await update.message.reply_text(
+                f"✅ Response saved but could not send to user: {str(e)}"
+            )
+        
+        # Clear context
+        context.user_data.pop('responding_to_ticket', None)
+        context.user_data.pop('ticket_user_id', None)
