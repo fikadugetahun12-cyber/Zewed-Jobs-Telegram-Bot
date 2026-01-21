@@ -1,0 +1,14 @@
+from telegram import ReplyKeyboardMarkup
+
+# Create persistent menu
+persistent_menu = ReplyKeyboardMarkup([
+    ["🏠 Home", "🔍 Search"],
+    ["📋 Categories", "⭐ Saved"],
+    ["📞 Support", "⚙️ Settings"]
+], resize_keyboard=True, is_persistent=True)
+
+# Send it with any message
+await update.message.reply_text(
+    "What would you like to do?",
+    reply_markup=persistent_menu
+)
