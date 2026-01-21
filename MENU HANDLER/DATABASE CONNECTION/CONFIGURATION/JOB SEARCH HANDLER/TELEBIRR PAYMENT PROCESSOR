@@ -1,0 +1,133 @@
+import requests
+import json
+import hashlib
+import time
+from config import Config
+
+class TelebirrPayment:
+    def __init__(self):
+        # TeleBirr API credentials (You need to register at TeleBirr)
+        self.merchant_id = "YOUR_TELEBIRR_MERCHANT_ID"
+        self.merchant_key = "YOUR_TELEBIRR_MERCHANT_KEY"
+        self.base_url = "https://api.telebirr.com/v1"  # Sandbox: https://api-sandbox.telebirr.com/v1
+        
+    def generate_payment_url(self, amount, payment_id, description, callback_url, customer_phone=None):
+        """
+        Generate TeleBirr payment URL
+        
+        Args:
+            amount: Amount in ETB
+            payment_id: Your internal payment ID
+            description: Payment description
+            callback_url: URL to redirect after payment
+            customer_phone: Customer's phone number (optional)
+        """
+        
+        # Prepare payment data
+        payment_data = {
+            "merchantId": self.merchant_id,
+            "merchantOrderId": payment_id,
+            "amount": str(amount),
+            "currency": "ETB",
+            "description": description,
+            "returnUrl": callback_url,
+            "notifyUrl": f"{Config.BOT_WEBHOOK_URL}/payment/telebirr/callback",  # Your webhook endpoint
+            "timeoutExpress": "15m",
+            "nonceStr": str(int(time.time() * 1000)),
+            "timestamp": str(int(time.time()))
+        }
+        
+        if customer_phone:
+            payment_data["customerPhone"] = customer_phone
+        
+        # Generate signature
+        signature_string = (
+            f"amount={payment_data['amount']}&"
+            f"currency={payment_data['currency']}&"
+            f"description={payment_data['description']}&"
+            f"merchantId={payment_data['merchantId']}&"
+            f"merchantOrderId={payment_data['merchantOrderId']}&"
+            f"nonceStr={payment_data['nonceStr']}&"
+            f"notifyUrl={payment_data['notifyUrl']}&"
+            f"returnUrl={payment_data['returnUrl']}&"
+            f"timestamp={payment_data['timestamp']}&"
+            f"key={self.merchant_key}"
+        )
+        
+        signature = hashlib.md5(signature_string.encode()).hexdigest().upper()
+        payment_data["sign"] = signature
+        
+        try:
+            # Send request to TeleBirr API
+            response = requests.post(
+                f"{self.base_url}/payment/create",
+                json=payment_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("code") == "200":
+                    return {
+                        "success": True,
+                        "payment_url": data["data"]["paymentUrl"],
+                        "qr_code": data["data"].get("qrCode"),
+                        "payment_id": payment_id
+                    }
+            
+            return {"success": False, "error": "Failed to generate payment URL"}
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def verify_payment(self, payment_id):
+        """Verify payment status with TeleBirr"""
+        try:
+            # Query payment status
+            query_data = {
+                "merchantId": self.merchant_id,
+                "merchantOrderId": payment_id,
+                "nonceStr": str(int(time.time() * 1000)),
+                "timestamp": str(int(time.time()))
+            }
+            
+            # Generate signature for query
+            signature_string = (
+                f"merchantId={query_data['merchantId']}&"
+                f"merchantOrderId={query_data['merchantOrderId']}&"
+                f"nonceStr={query_data['nonceStr']}&"
+                f"timestamp={query_data['timestamp']}&"
+                f"key={self.merchant_key}"
+            )
+            
+            signature = hashlib.md5(signature_string.encode()).hexdigest().upper()
+            query_data["sign"] = signature
+            
+            response = requests.post(
+                f"{self.base_url}/payment/query",
+                json=query_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("code") == "200":
+                    payment_status = data["data"]["tradeStatus"]
+                    
+                    status_map = {
+                        "SUCCESS": "completed",
+                        "CLOSED": "failed",
+                        "NOTPAY": "pending"
+                    }
+                    
+                    return {
+                        "success": True,
+                        "status": status_map.get(payment_status, "pending"),
+                        "transaction_id": data["data"].get("transactionId"),
+                        "amount": float(data["data"].get("totalAmount", 0)) / 100  # Convert from cents
+                    }
+            
+            return {"success": False, "error": "Failed to verify payment"}
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
