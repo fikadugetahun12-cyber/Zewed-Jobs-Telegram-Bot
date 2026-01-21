@@ -1,0 +1,54 @@
+import os
+import ssl
+from telegram.ext import Application
+from telegram import Update
+from telegram.ext import MessageHandler, filters, CallbackContext
+from dotenv import load_dotenv
+
+# Load environment
+load_dotenv('.env.production')
+
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text("🚀 Zewed Jobs Bot is running!")
+
+def main():
+    # Get configuration
+    TOKEN = os.getenv("BOT_TOKEN")
+    WEBHOOK_URL = os.getenv("BOT_WEBHOOK_URL", "https://api.zewedjobs.com")
+    PORT = int(os.getenv("PORT", 8443))
+    
+    # Create application
+    application = Application.builder().token(TOKEN).build()
+    
+    # Add handlers
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start))
+    
+    # Set webhook
+    webhook_url = f"{WEBHOOK_URL}/webhook"
+    print(f"Setting webhook to: {webhook_url}")
+    
+    # For production with SSL
+    if os.getenv("ENVIRONMENT") == "production":
+        # Path to your SSL certificate
+        cert_path = '/etc/letsencrypt/live/api.zewedjobs.com/fullchain.pem'
+        key_path = '/etc/letsencrypt/live/api.zewedjobs.com/privkey.pem'
+        
+        # Create SSL context
+        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        context.load_cert_chain(cert_path, key_path)
+        
+        # Start webhook
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=TOKEN,
+            webhook_url=webhook_url,
+            ssl_context=context
+        )
+    else:
+        # For development - polling
+        print("Starting in development mode (polling)...")
+        application.run_polling()
+
+if __name__ == "__main__":
+    main()
