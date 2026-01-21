@@ -1,0 +1,114 @@
+import requests
+import json
+import base64
+import hashlib
+import time
+
+class CBEBirrPayment:
+    def __init__(self):
+        # CBE Birr API credentials (Register at CBE Birr)
+        self.client_id = "YOUR_CBE_CLIENT_ID"
+        self.client_secret = "YOUR_CBE_CLIENT_SECRET"
+        self.merchant_id = "YOUR_CBE_MERCHANT_ID"
+        self.base_url = "https://api.cbe.com.et/cbebirr/v1"  # Sandbox URL
+        
+    def get_access_token(self):
+        """Get OAuth2 access token"""
+        try:
+            auth_string = f"{self.client_id}:{self.client_secret}"
+            auth_encoded = base64.b64encode(auth_string.encode()).decode()
+            
+            response = requests.post(
+                f"{self.base_url}/oauth/token",
+                data={"grant_type": "client_credentials"},
+                headers={
+                    "Authorization": f"Basic {auth_encoded}",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            )
+            
+            if response.status_code == 200:
+                return response.json().get("access_token")
+            return None
+            
+        except Exception as e:
+            print(f"CBE Birr token error: {e}")
+            return None
+    
+    def initiate_payment(self, amount, payment_id, description, customer_msisdn):
+        """Initiate CBE Birr payment"""
+        access_token = self.get_access_token()
+        if not access_token:
+            return {"success": False, "error": "Failed to get access token"}
+        
+        payment_data = {
+            "merchantId": self.merchant_id,
+            "merchantOrderId": payment_id,
+            "amount": str(amount),
+            "currency": "ETB",
+            "description": description,
+            "customerMsisdn": customer_msisdn,
+            "callbackUrl": f"{Config.BOT_WEBHOOK_URL}/payment/cbebirr/callback",
+            "nonceStr": str(int(time.time() * 1000)),
+            "timestamp": str(int(time.time()))
+        }
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/payment/initiate",
+                json=payment_data,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("responseCode") == "200":
+                    return {
+                        "success": True,
+                        "transaction_id": data["data"]["transactionId"],
+                        "payment_id": payment_id,
+                        "instructions": data["data"].get("paymentInstructions", [])
+                    }
+            
+            return {"success": False, "error": "Failed to initiate payment"}
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def check_payment_status(self, transaction_id):
+        """Check payment status"""
+        access_token = self.get_access_token()
+        if not access_token:
+            return {"success": False, "error": "Failed to get access token"}
+        
+        try:
+            response = requests.get(
+                f"{self.base_url}/payment/status/{transaction_id}",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                status_map = {
+                    "SUCCESS": "completed",
+                    "FAILED": "failed",
+                    "PENDING": "pending"
+                }
+                
+                return {
+                    "success": True,
+                    "status": status_map.get(data.get("status"), "pending"),
+                    "transaction_id": transaction_id,
+                    "amount": data.get("amount")
+                }
+            
+            return {"success": False, "error": "Failed to check status"}
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
