@@ -1,0 +1,45 @@
+server {
+    listen 80;
+    server_name api.zewedjobs.com;
+    
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api.zewedjobs.com;
+    
+    # SSL certificates (get from Let's Encrypt)
+    ssl_certificate /etc/letsencrypt/live/api.zewedjobs.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.zewedjobs.com/privkey.pem;
+    
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    
+    # Bot webhook endpoint (for payment callbacks)
+    location /webhook {
+        proxy_pass http://localhost:8443;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    
+    # Static files (for future web dashboard)
+    location /static/ {
+        alias /var/www/zewedjobs/static/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+    
+    # Admin panel (future)
+    location /admin/ {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
