@@ -1,0 +1,13 @@
+[program:zewedjobs-bot]
+command=/var/www/zewedjobs/venv/bin/python /var/www/zewedjobs/bot/bot.py
+directory=/var/www/zewedjobs/bot
+user=deploy
+autostart=true
+autorestart=true
+startretries=3
+stderr_logfile=/var/www/zewedjobs/logs/error.log
+stdout_logfile=/var/www/zewedjobs/logs/bot.log
+environment=
+    PATH="/var/www/zewedjobs/venv/bin",
+    PYTHONPATH="/var/www/zewedjobs/bot",
+    ENV_FILE="/var/www/zewedjobs/bot/.env.production"
