@@ -1,0 +1,14 @@
+from telegram import BotCommand
+from telegram.ext import Application
+
+# Set bot commands
+async def set_commands(application: Application):
+    commands = [
+        BotCommand("start", "Start the bot"),
+        BotCommand("help", "Get help"),
+        BotCommand("jobs", "Browse available jobs"),
+        BotCommand("post", "Post a new job"),
+        BotCommand("profile", "View your profile"),
+        BotCommand("settings", "Change settings")
+    ]
+    await application.bot.set_my_commands(commands)
