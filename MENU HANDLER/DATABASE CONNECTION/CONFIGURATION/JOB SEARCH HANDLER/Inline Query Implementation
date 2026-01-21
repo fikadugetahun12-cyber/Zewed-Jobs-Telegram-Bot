@@ -1,0 +1,53 @@
+from telegram import Update, InlineQueryResultArticle, InputTextMessageContent
+from telegram.ext import Application, InlineQueryHandler, ContextTypes
+import uuid
+
+async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline queries"""
+    query = update.inline_query.query
+    
+    if not query:
+        # Show default suggestions when no query
+        results = [
+            InlineQueryResultArticle(
+                id=str(uuid.uuid4()),
+                title="🔍 Search Jobs in Ethiopia",
+                description="Find employment opportunities",
+                input_message_content=InputTextMessageContent(
+                    "🔍 *Searching jobs on Zewed Jobs...*\n\n"
+                    "Visit @zewed_jobs_bot to search for jobs in Ethiopia!",
+                    parse_mode="Markdown"
+                ),
+                thumb_url="https://i.imgur.com/3oXQh2a.png"  # Add your logo
+            ),
+            InlineQueryResultArticle(
+                id=str(uuid.uuid4()),
+                title="📝 Post a Job Opening",
+                description="Hire qualified candidates",
+                input_message_content=InputTextMessageContent(
+                    "📝 *Post jobs on Zewed Jobs*\n\n"
+                    "Need to hire? Visit @zewed_jobs_bot to post job openings!",
+                    parse_mode="Markdown"
+                ),
+                thumb_url="https://i.imgur.com/3oXQh2a.png"
+            ),
+            InlineQueryResultArticle(
+                id=str(uuid.uuid4()),
+                title="👤 Browse Candidate Profiles",
+                description="Find qualified talent",
+                input_message_content=InputTextMessageContent(
+                    "👤 *Find Talent on Zewed Jobs*\n\n"
+                    "Looking for qualified candidates? Visit @zewed_jobs_bot!",
+                    parse_mode="Markdown"
+                ),
+                thumb_url="https://i.imgur.com/3oXQh2a.png"
+            )
+        ]
+    else:
+        # Handle actual job searches
+        results = await search_jobs_inline(query)
+    
+    await update.inline_query.answer(results, cache_time=1)
+
+# Add to your main bot
+application.add_handler(InlineQueryHandler(inline_query))
