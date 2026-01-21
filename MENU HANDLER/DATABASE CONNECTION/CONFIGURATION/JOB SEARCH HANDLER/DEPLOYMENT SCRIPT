@@ -1,0 +1,64 @@
+#!/bin/bash
+# Save as deploy.sh and make executable: chmod +x deploy.sh
+
+echo "🚀 Starting Zewed Jobs Bot Deployment..."
+echo "========================================"
+
+# Variables
+PROJECT_DIR="/var/www/zewedjobs"
+VENV_DIR="$PROJECT_DIR/venv"
+LOG_DIR="$PROJECT_DIR/logs"
+BACKUP_DIR="$PROJECT_DIR/backup"
+
+# Create directories
+mkdir -p $LOG_DIR $BACKUP_DIR
+
+# Backup current database
+echo "📦 Creating database backup..."
+BACKUP_FILE="$BACKUP_DIR/backup_$(date +%Y%m%d_%H%M%S).sql"
+mysqldump -u zewedjobs_user -p zewedjobs_production > $BACKUP_FILE
+echo "✅ Backup saved: $BACKUP_FILE"
+
+# Stop existing bot
+echo "🛑 Stopping existing bot..."
+supervisorctl stop zewedjobs-bot
+
+# Update code (if using Git)
+echo "📥 Updating code..."
+cd $PROJECT_DIR
+git pull origin main
+
+# Setup virtual environment
+echo "🐍 Setting up Python environment..."
+if [ ! -d "$VENV_DIR" ]; then
+    python3 -m venv $VENV_DIR
+fi
+source $VENV_DIR/bin/activate
+
+# Install dependencies
+echo "📦 Installing dependencies..."
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# Apply database migrations (if any)
+echo "🗄️  Updating database..."
+cd $PROJECT_DIR/bot
+python -c "from database import db; db.connect(); print('✅ Database connected')"
+
+# Set permissions
+echo "🔐 Setting permissions..."
+chown -R deploy:deploy $PROJECT_DIR
+chmod -R 755 $PROJECT_DIR
+chmod 600 .env.production
+
+# Restart bot
+echo "🔄 Restarting bot..."
+supervisorctl start zewedjobs-bot
+
+# Check status
+echo "📊 Checking bot status..."
+sleep 3
+supervisorctl status zewedjobs-bot
+
+echo "✅ Deployment completed!"
+echo "🌐 Bot should be running at: https://t.me/zewed_jobs_bot"
