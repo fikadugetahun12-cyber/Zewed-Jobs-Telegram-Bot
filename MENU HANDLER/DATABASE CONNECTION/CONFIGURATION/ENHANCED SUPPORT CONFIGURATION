@@ -1,0 +1,22 @@
+class Config:
+    # ... existing config ...
+    
+    # Support settings
+    SUPPORT_PHONE = "+251924858244"
+    SUPPORT_EMAIL = "support@zewedjobs.com"
+    SUPPORT_BOT = "@zewedjobs_support_bot"
+    
+    # Support hours (EAT - East Africa Time)
+    SUPPORT_HOURS = {
+        "weekdays": "9:00 AM - 6:00 PM",
+        "weekends": "10:00 AM - 4:00 PM",
+        "emergency": "24/7 for payment issues"
+    }
+    
+    # Auto-response templates
+    AUTO_RESPONSES = {
+        "greeting": "👋 Hello! How can I help you today?",
+        "thanks": "You're welcome! Let me know if you need anything else.",
+        "default": "I'll connect you with our support team. They'll respond within 24 hours.",
+        "payment_issue": "For payment issues, please contact +251 911 234 568 (24/7)."
+    }
