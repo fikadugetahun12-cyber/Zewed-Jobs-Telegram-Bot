@@ -1,0 +1,213 @@
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CallbackContext, ConversationHandler
+from database import db
+import re
+
+# Conversation states
+PROFILE_NAME, PROFILE_PHONE, PROFILE_EMAIL, PROFILE_TYPE, PROFILE_EXPERIENCE, PROFILE_EDUCATION, PROFILE_SKILLS = range(7)
+
+async def start_profile(update: Update, context: CallbackContext):
+    """Start profile creation/editing"""
+    user = update.effective_user
+    user_id = user.id
+    
+    # Check if user exists
+    cursor = db.get_cursor()
+    cursor.execute("SELECT * FROM users WHERE telegram_id = %s", (user_id,))
+    existing_user = cursor.fetchone()
+    
+    if existing_user:
+        # Show existing profile
+        return await show_profile(update, context, existing_user)
+    else:
+        # Start new profile creation
+        await update.message.reply_text(
+            "👤 *Create Your Profile*\n\n"
+            "Let's set up your profile to get better job matches.\n\n"
+            "First, what's your full name?",
+            parse_mode="Markdown"
+        )
+        return PROFILE_NAME
+
+async def save_profile_name(update: Update, context: CallbackContext):
+    """Save user's name"""
+    context.user_data['full_name'] = update.message.text
+    
+    keyboard = [
+        [InlineKeyboardButton("Skip", callback_data="skip_phone")],
+        [InlineKeyboardButton("Cancel", callback_data="cancel_profile")]
+    ]
+    
+    await update.message.reply_text(
+        "📱 *Phone Number*\n\n"
+        "Please enter your phone number (optional):\n"
+        "Example: +251912345678",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return PROFILE_PHONE
+
+async def save_profile_phone(update: Update, context: CallbackContext):
+    """Save user's phone number"""
+    phone = update.message.text
+    if phone and not re.match(r'^\+?[0-9\s\-\(\)]+$', phone):
+        await update.message.reply_text("❌ Invalid phone number format. Please try again or skip:")
+        return PROFILE_PHONE
+    
+    context.user_data['phone'] = phone if phone else None
+    
+    keyboard = [
+        [InlineKeyboardButton("Skip", callback_data="skip_email")],
+        [InlineKeyboardButton("Cancel", callback_data="cancel_profile")]
+    ]
+    
+    await update.message.reply_text(
+        "📧 *Email Address*\n\n"
+        "Please enter your email address (optional):",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return PROFILE_EMAIL
+
+async def save_profile_email(update: Update, context: CallbackContext):
+    """Save user's email"""
+    email = update.message.text
+    if email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        await update.message.reply_text("❌ Invalid email format. Please try again or skip:")
+        return PROFILE_EMAIL
+    
+    context.user_data['email'] = email if email else None
+    
+    # Ask for user type
+    keyboard = [
+        [
+            InlineKeyboardButton("👨‍💼 Job Seeker", callback_data="type_job_seeker"),
+            InlineKeyboardButton("💼 Employer", callback_data="type_employer")
+        ],
+        [InlineKeyboardButton("Cancel", callback_data="cancel_profile")]
+    ]
+    
+    await update.message.reply_text(
+        "🎯 *I am a...*\n\n"
+        "Are you looking for jobs or posting jobs?",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return PROFILE_TYPE
+
+async def save_profile_data(update: Update, context: CallbackContext):
+    """Save complete profile to database"""
+    user = update.effective_user
+    data = context.user_data
+    
+    cursor = db.get_cursor()
+    
+    # Insert or update user
+    cursor.execute("""
+        INSERT INTO users 
+        (telegram_id, username, full_name, phone, email, user_type, experience_years, education_level, skills)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+        username = VALUES(username),
+        full_name = VALUES(full_name),
+        phone = VALUES(phone),
+        email = VALUES(email),
+        user_type = VALUES(user_type),
+        experience_years = VALUES(experience_years),
+        education_level = VALUES(education_level),
+        skills = VALUES(skills)
+    """, (
+        user.id,
+        user.username,
+        data.get('full_name'),
+        data.get('phone'),
+        data.get('email'),
+        data.get('user_type', 'job_seeker'),
+        data.get('experience_years', 0),
+        data.get('education_level', ''),
+        data.get('skills', '')
+    ))
+    
+    db.connection.commit()
+    cursor.close()
+    
+    # Clear conversation data
+    context.user_data.clear()
+    
+    await update.callback_query.message.reply_text(
+        "✅ *Profile Saved Successfully!*\n\n"
+        "Your profile has been created/updated. "
+        "You can now browse jobs or post jobs depending on your account type.",
+        parse_mode="Markdown"
+    )
+    
+    return ConversationHandler.END
+
+async def show_profile(update: Update, context: CallbackContext, user_data=None):
+    """Display user profile"""
+    if not user_data:
+        cursor = db.get_cursor()
+        cursor.execute("SELECT * FROM users WHERE telegram_id = %s", (update.effective_user.id,))
+        user_data = cursor.fetchone()
+        cursor.close()
+    
+    if not user_data:
+        await update.message.reply_text("You don't have a profile yet. Use /profile to create one.")
+        return
+    
+    profile_text = f"""
+👤 *Your Profile*
+
+*Name:* {user_data['full_name']}
+*Username:* @{user_data['username'] or 'N/A'}
+*Account Type:* {user_data['user_type'].replace('_', ' ').title()}
+*Phone:* {user_data['phone'] or 'Not provided'}
+*Email:* {user_data['email'] or 'Not provided'}
+
+*Experience:* {user_data['experience_years'] or 0} years
+*Education:* {user_data['education_level'] or 'Not specified'}
+*Skills:* {user_data['skills'] or 'Not specified'}
+
+*Member since:* {user_data['created_at'].strftime('%B %d, %Y')}
+"""
+    
+    keyboard = [
+        [InlineKeyboardButton("✏️ Edit Profile", callback_data="edit_profile")],
+        [InlineKeyboardButton("📄 Update Resume", callback_data="update_resume")],
+        [InlineKeyboardButton("📊 My Statistics", callback_data="profile_stats")]
+    ]
+    
+    await update.message.reply_text(
+        profile_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def edit_profile(update: Update, context: CallbackContext):
+    """Start profile editing"""
+    query = update.callback_query
+    await query.answer()
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("📱 Phone", callback_data="edit_phone"),
+            InlineKeyboardButton("📧 Email", callback_data="edit_email")
+        ],
+        [
+            InlineKeyboardButton("🎯 Account Type", callback_data="edit_type"),
+            InlineKeyboardButton("💼 Experience", callback_data="edit_experience")
+        ],
+        [
+            InlineKeyboardButton("🎓 Education", callback_data="edit_education"),
+            InlineKeyboardButton("🛠️ Skills", callback_data="edit_skills")
+        ],
+        [InlineKeyboardButton("📄 Resume", callback_data="edit_resume")],
+        [InlineKeyboardButton("🔙 Back", callback_data="back_to_profile")]
+    ]
+    
+    await query.message.reply_text(
+        "✏️ *Edit Profile*\n\n"
+        "What would you like to edit?",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
