@@ -1,0 +1,13 @@
+/var/www/zewedjobs/logs/*.log {
+    daily
+    missingok
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 640 deploy deploy
+    sharedscripts
+    postrotate
+        supervisorctl restart zewedjobs-bot
+    endscript
+}
