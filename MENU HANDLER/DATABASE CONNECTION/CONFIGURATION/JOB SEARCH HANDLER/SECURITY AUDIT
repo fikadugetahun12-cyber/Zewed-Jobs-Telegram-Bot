@@ -1,0 +1,48 @@
+# Step 1: Generate ALL new credentials (DO THIS NOW!)
+python3 -c "
+import secrets
+print('🔐 GENERATE NEW CREDENTIALS:')
+print('='*50)
+print(f'BOT_TOKEN: {secrets.token_urlsafe(32)[:40]}')
+print(f'DB_PASSWORD: {secrets.token_urlsafe(16)}')
+print(f'SECRET_KEY: {secrets.token_hex(32)}')
+print(f'STRIPE_KEY: sk_test_{secrets.token_hex(24)}')
+print('='*50)
+print('⚠️ REPLACE ALL VALUES IN .env FILE!')
+"
+
+# Step 2: Create secure .env.production file
+cat > .env.production << EOL
+# ===== PRODUCTION CONFIGURATION =====
+# Telegram Bot
+BOT_TOKEN=YOUR_NEW_SECURE_BOT_TOKEN_HERE
+ADMIN_IDS=YOUR_TELEGRAM_ID_HERE
+
+# Database (Use remote database in production)
+DB_HOST=your-database-host.com
+DB_NAME=zewedjobs_production
+DB_USER=zewedjobs_user
+DB_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(16))")
+
+# Payment Gateways (Register first!)
+TELEBIRR_MERCHANT_ID=your_production_merchant_id
+TELEBIRR_MERCHANT_KEY=your_production_merchant_key
+CBE_CLIENT_ID=your_cbe_production_id
+CBE_CLIENT_SECRET=your_cbe_production_secret
+CBE_MERCHANT_ID=your_cbe_merchant_id
+STRIPE_SECRET_KEY=sk_live_your_stripe_key
+STRIPE_PUBLISHABLE_KEY=pk_live_your_stripe_key
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+
+# Server Configuration
+BOT_WEBHOOK_URL=https://api.zewedjobs.com
+ENVIRONMENT=production
+DEBUG=False
+
+# Security
+SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+ENCRYPTION_KEY=$(python3 -c "import secrets; print(secrets.token_hex(16))")
+EOL
+
+echo "✅ Created .env.production file"
+echo "⚠️  NEVER commit this file to GitHub!"
