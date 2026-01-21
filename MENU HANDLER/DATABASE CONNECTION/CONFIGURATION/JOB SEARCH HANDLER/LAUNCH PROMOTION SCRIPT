@@ -1,0 +1,31 @@
+async def launch_promotion(update: Update, context: CallbackContext):
+    """Special launch promotion"""
+    promo_text = """
+🎉 *LAUNCH SPECIAL OFFER!* 🎉
+
+For a limited time, get *50% OFF* on all subscription plans!
+
+🚀 *Pro Plan:* ~~ETB 799~~ → ETB 399/month
+👑 *Enterprise:* ~~ETB 1,999~~ → ETB 999/month
+
+*Special Bonuses:*
+✅ Free job promotion (worth ETB 199)
+✅ 3-month extended support
+✅ Featured employer badge
+
+📅 *Offer ends:* December 31, 2024
+👥 *Limited to first 100 employers*
+
+Use code: **LAUNCH50**
+"""
+    
+    keyboard = [
+        [InlineKeyboardButton("🚀 Get Discount", callback_data="claim_promo")],
+        [InlineKeyboardButton("💎 View Plans", callback_data="show_plans")]
+    ]
+    
+    await update.message.reply_text(
+        promo_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
