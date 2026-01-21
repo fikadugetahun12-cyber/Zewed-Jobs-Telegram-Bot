@@ -1,0 +1,19 @@
+# Step 1: Connect to your VPS (DigitalOcean, AWS, Linode, etc.)
+ssh root@your-server-ip
+
+# Step 2: Basic server setup
+apt update && apt upgrade -y
+apt install -y python3-pip python3-venv nginx mysql-server redis-server
+apt install -y supervisor certbot python3-certbot-nginx
+
+# Step 3: Create deployment user
+adduser deploy
+usermod -aG sudo deploy
+
+# Step 4: Setup project directory
+mkdir -p /var/www/zewedjobs
+chown -R deploy:deploy /var/www/zewedjobs
+
+# Step 5: Clone your code (if using Git)
+cd /var/www/zewedjobs
+git clone https://github.com/yourusername/zewedjobs-bot.git .
