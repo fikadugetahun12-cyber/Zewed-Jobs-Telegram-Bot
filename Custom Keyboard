@@ -1,0 +1,16 @@
+from telegram import ReplyKeyboardMarkup, KeyboardButton
+
+# Create menu keyboard
+def get_main_menu():
+    keyboard = [
+        ["🔍 Browse Jobs", "📝 Post Job"],
+        ["👤 My Profile", "⚙️ Settings"],
+        ["ℹ️ Help", "📞 Contact"]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+
+# Send menu
+await update.message.reply_text(
+    "Main Menu:",
+    reply_markup=get_main_menu()
+)
