@@ -1,0 +1,25 @@
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+# Create inline menu
+def get_inline_menu():
+    keyboard = [
+        [
+            InlineKeyboardButton("🔍 Jobs", callback_data="menu_jobs"),
+            InlineKeyboardButton("📝 Post", callback_data="menu_post")
+        ],
+        [
+            InlineKeyboardButton("👤 Profile", callback_data="menu_profile"),
+            InlineKeyboardButton("⚙️ Settings", callback_data="menu_settings")
+        ],
+        [
+            InlineKeyboardButton("ℹ️ Help", callback_data="menu_help"),
+            InlineKeyboardButton("📞 Contact", callback_data="menu_contact")
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+# Send inline menu
+await update.message.reply_text(
+    "Select an option:",
+    reply_markup=get_inline_menu()
+)
