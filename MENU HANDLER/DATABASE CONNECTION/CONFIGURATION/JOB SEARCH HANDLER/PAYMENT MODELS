@@ -1,0 +1,248 @@
+from database import db
+from datetime import datetime, timedelta
+import uuid
+
+class PaymentModel:
+    @staticmethod
+    def create_payment_table():
+        """Create payment related tables"""
+        cursor = db.get_cursor()
+        
+        # Payments table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS payments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                payment_id VARCHAR(50) UNIQUE NOT NULL,
+                user_id BIGINT NOT NULL,
+                amount DECIMAL(10, 2) NOT NULL,
+                currency VARCHAR(10) DEFAULT 'ETB',
+                description TEXT,
+                payment_method ENUM('telebirr', 'cbe_birr', 'amole', 'hellocash', 'stripe', 'bank_transfer') NOT NULL,
+                status ENUM('pending', 'processing', 'completed', 'failed', 'refunded') DEFAULT 'pending',
+                transaction_id VARCHAR(100),
+                receipt_url VARCHAR(500),
+                metadata JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(telegram_id) ON DELETE CASCADE
+            )
+        """)
+        
+        # Subscriptions/Plans table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS subscription_plans (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                description TEXT,
+                price_monthly DECIMAL(10, 2) NOT NULL,
+                price_yearly DECIMAL(10, 2),
+                features JSON NOT NULL,
+                job_posts_limit INT DEFAULT 0,
+                job_duration_days INT DEFAULT 30,
+                priority_listing BOOLEAN DEFAULT FALSE,
+                featured_employer BOOLEAN DEFAULT FALSE,
+                cv_database_access BOOLEAN DEFAULT FALSE,
+                analytics_access BOOLEAN DEFAULT FALSE,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # User subscriptions table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_subscriptions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                plan_id INT NOT NULL,
+                payment_id VARCHAR(50),
+                status ENUM('active', 'canceled', 'expired', 'pending') DEFAULT 'pending',
+                start_date DATE,
+                end_date DATE,
+                auto_renew BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(telegram_id) ON DELETE CASCADE,
+                FOREIGN KEY (plan_id) REFERENCES subscription_plans(id),
+                FOREIGN KEY (payment_id) REFERENCES payments(payment_id)
+            )
+        """)
+        
+        # Job promotion payments
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS job_promotions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                job_id INT NOT NULL,
+                payment_id VARCHAR(50),
+                promotion_type ENUM('featured', 'urgent', 'highlighted', 'top_listing') NOT NULL,
+                duration_days INT DEFAULT 7,
+                status ENUM('active', 'expired') DEFAULT 'active',
+                start_date DATE,
+                end_date DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+                FOREIGN KEY (payment_id) REFERENCES payments(payment_id)
+            )
+        """)
+        
+        db.connection.commit()
+        cursor.close()
+        print("✅ Payment tables created successfully")
+        
+        # Insert default subscription plans
+        PaymentModel.insert_default_plans()
+    
+    @staticmethod
+    def insert_default_plans():
+        """Insert default subscription plans"""
+        cursor = db.get_cursor()
+        
+        # Check if plans already exist
+        cursor.execute("SELECT COUNT(*) as count FROM subscription_plans")
+        if cursor.fetchone()['count'] > 0:
+            cursor.close()
+            return
+        
+        default_plans = [
+            {
+                'name': '🚀 Basic',
+                'description': 'For small businesses and startups',
+                'price_monthly': 299.00,
+                'price_yearly': 2999.00,
+                'features': {
+                    'job_posts': 5,
+                    'duration': 30,
+                    'applications': 'Unlimited',
+                    'basic_analytics': True,
+                    'customer_support': 'Email only'
+                },
+                'job_posts_limit': 5,
+                'job_duration_days': 30,
+                'priority_listing': False,
+                'featured_employer': False,
+                'cv_database_access': False,
+                'analytics_access': False
+            },
+            {
+                'name': '🏆 Pro',
+                'description': 'For growing companies',
+                'price_monthly': 799.00,
+                'price_yearly': 7999.00,
+                'features': {
+                    'job_posts': 20,
+                    'duration': 45,
+                    'applications': 'Unlimited',
+                    'advanced_analytics': True,
+                    'priority_support': True,
+                    'company_profile': True
+                },
+                'job_posts_limit': 20,
+                'job_duration_days': 45,
+                'priority_listing': True,
+                'featured_employer': True,
+                'cv_database_access': True,
+                'analytics_access': True
+            },
+            {
+                'name': '👑 Enterprise',
+                'description': 'For large organizations',
+                'price_monthly': 1999.00,
+                'price_yearly': 19999.00,
+                'features': {
+                    'job_posts': 100,
+                    'duration': 60,
+                    'applications': 'Unlimited',
+                    'dedicated_support': True,
+                    'custom_branding': True,
+                    'api_access': True,
+                    'bulk_postings': True
+                },
+                'job_posts_limit': 100,
+                'job_duration_days': 60,
+                'priority_listing': True,
+                'featured_employer': True,
+                'cv_database_access': True,
+                'analytics_access': True
+            },
+            {
+                'name': '🎯 Free Trial',
+                'description': '7-day free trial',
+                'price_monthly': 0.00,
+                'price_yearly': 0.00,
+                'features': {
+                    'job_posts': 1,
+                    'duration': 7,
+                    'applications': 'Limited to 10',
+                    'basic_analytics': True
+                },
+                'job_posts_limit': 1,
+                'job_duration_days': 7,
+                'priority_listing': False,
+                'featured_employer': False,
+                'cv_database_access': False,
+                'analytics_access': False
+            }
+        ]
+        
+        for plan in default_plans:
+            cursor.execute("""
+                INSERT INTO subscription_plans 
+                (name, description, price_monthly, price_yearly, features, 
+                 job_posts_limit, job_duration_days, priority_listing, 
+                 featured_employer, cv_database_access, analytics_access)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                plan['name'],
+                plan['description'],
+                plan['price_monthly'],
+                plan['price_yearly'],
+                str(plan['features']),
+                plan['job_posts_limit'],
+                plan['job_duration_days'],
+                plan['priority_listing'],
+                plan['featured_employer'],
+                plan['cv_database_access'],
+                plan['analytics_access']
+            ))
+        
+        db.connection.commit()
+        cursor.close()
+        print("✅ Default subscription plans inserted")
+    
+    @staticmethod
+    def create_payment(user_id, amount, description, payment_method, metadata=None):
+        """Create a new payment record"""
+        payment_id = f"PAY-{uuid.uuid4().hex[:10].upper()}"
+        
+        cursor = db.get_cursor()
+        cursor.execute("""
+            INSERT INTO payments 
+            (payment_id, user_id, amount, description, payment_method, metadata)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (payment_id, user_id, amount, description, payment_method, str(metadata) if metadata else None))
+        
+        db.connection.commit()
+        cursor.close()
+        return payment_id
+    
+    @staticmethod
+    def update_payment_status(payment_id, status, transaction_id=None, receipt_url=None):
+        """Update payment status"""
+        cursor = db.get_cursor()
+        cursor.execute("""
+            UPDATE payments 
+            SET status = %s, transaction_id = %s, receipt_url = %s 
+            WHERE payment_id = %s
+        """, (status, transaction_id, receipt_url, payment_id))
+        
+        db.connection.commit()
+        cursor.close()
+        return cursor.rowcount > 0
+    
+    @staticmethod
+    def get_payment(payment_id):
+        """Get payment details"""
+        cursor = db.get_cursor()
+        cursor.execute("SELECT * FROM payments WHERE payment_id = %s", (payment_id,))
+        payment = cursor.fetchone()
+        cursor.close()
+        return payment
